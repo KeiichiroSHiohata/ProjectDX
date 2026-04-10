@@ -353,13 +353,13 @@ function localDateStr(d){
   return y+'-'+m+'-'+day;
 }
 
-function shiftDate(delta){
+async function shiftDate(delta){
   autoSave();
   const inp=document.getElementById('workDate');
   const d=inp.value?new Date(inp.value+'T00:00:00'):new Date();
   d.setDate(d.getDate()+delta);
   inp.value=localDateStr(d);
-  onDateChange();
+  await onDateChange();
 }
 
 function toggleAll(type){
@@ -619,7 +619,7 @@ const DEFAULT_GOAL_MAP={...GOAL_MAP};
 
 function autoSafetyGoal(){
   let maxScore=0, bestMeasure='';
-  document.querySelectorAll('.hazard-row').forEach(hr=>{
+  document.querySelectorAll('#workBlocks .hazard-row').forEach(hr=>{
     const s=parseInt(hr.querySelector('.hz-sev').value)||0;
     const f=parseInt(hr.querySelector('.hz-freq').value)||0;
     const m=hr.querySelector('.hz-measure').value;
@@ -757,7 +757,7 @@ async function exportExcel(){
   if(!document.getElementById('creator').value||document.getElementById('creator').value==='--') errors.push('作成者が未選択です');
   if(!document.getElementById('workDate').value) errors.push('日付が未入力です');
   // 作業内容・危険要因
-  const wblocks=document.querySelectorAll('.work-block');
+  const wblocks=document.querySelectorAll('#workBlocks .work-block');
   if(wblocks.length===0) errors.push('作業内容が1つもありません');
   wblocks.forEach((wb,idx)=>{
     const bn=idx+1;
@@ -940,7 +940,7 @@ async function exportExcel(){
 
     // === 作業内容・危険要因 ===
     let slot=0;
-    document.querySelectorAll('.work-block').forEach(wbEl=>{
+    document.querySelectorAll('#workBlocks .work-block').forEach(wbEl=>{
       const name=wbEl.querySelector('.wk-name').value;
       const qty=wbEl.querySelector('.wk-qty').value;
       const unit=wbEl.querySelector('.wk-unit').value;
@@ -1107,12 +1107,13 @@ async function exportExcel(){
   }
 }
 
-// ============ データ保存・読込（KY_data.json のみを情報源とする） ============
+// ============ データ保存・読込（フォルダ + 月次ファイル方式） ============
 const STORAGE_PREFIX='KY_';
-const DATA_FILE_NAME='KY_data.json';
-// 全日付データのインメモリキャッシュ（KY_data.jsonと同じ構造）
+const CONFIG_FILE_NAME='config.json';
+// 当月分データのインメモリキャッシュ
 let allData={config:{},entries:{}};
-// KY_data.json書込のdebounce用
+let currentMonth=''; // 'YYYYMM'
+let currentMonthFileId=null;
 let dataFileSaveTm=null;
 
 function getDateKey(){
@@ -1120,11 +1121,16 @@ function getDateKey(){
   return d?d.replace(/-/g,''):'';
 }
 
+function getMonthKey(){
+  const d=document.getElementById('workDate').value;
+  return d?d.replace(/-/g,'').substring(0,6):'';
+}
+
 function collectFormData(){
   const data={};
   data.workDate=document.getElementById('workDate').value;
   data.workBlocks=[];
-  document.querySelectorAll('.work-block').forEach(wb=>{
+  document.querySelectorAll('#workBlocks .work-block').forEach(wb=>{
     const block={
       name:wb.querySelector('.wk-name').value,
       qty:wb.querySelector('.wk-qty').value,
@@ -1161,17 +1167,18 @@ const DRIVE_CLIENT_ID='284823490637-5i3bmm35ncug6k486gidq3obgnb8ca3s.apps.google
 const DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
 let driveAccessToken=null;
 let driveFileId=null;
-let driveReady=false; // Drive読込完了までautoSaveを抑止 // KY_data.json の Google Drive 上のファイルID
+let driveReady=false;
 let gapiInited=false;
 let gisInited=false;
 let tokenClient=null;
 
-// ============ Master File 連携 ============
+// ============ Master / Project 状態 ============
 const MASTER_FILE_NAME='KY_master.json';
 let masterFileId=null;
 let masterData={workers:[],workCategories:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{}};
 let projectList=[];
 let currentProjectFileId=null;
+let currentFolderId=null;
 
 // GAPI (Google API client) 初期化
 function initGapi(){
@@ -1234,73 +1241,14 @@ async function onDriveConnected(){
 
   // 4. Auto-select first project if available
   if(projectList.length>0){
-    document.getElementById('projectSelect').value=projectList[0].fileId;
-    await switchProject(projectList[0].fileId);
+    document.getElementById('projectSelect').value=projectList[0].id;
+    await onProjectSelect();
   }else{
     showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
   }
 }
 
-// Google Drive 上で KY_data.json を検索、なければ作成
-async function findOrCreateDataFile(){
-  try{
-    // まず検索
-    const resp=await gapi.client.drive.files.list({
-      q:"name='"+DATA_FILE_NAME+"' and trashed=false",
-      fields:'files(id,name)',
-      spaces:'drive'
-    });
-    const files=resp.result.files||[];
-    if(files.length>0){
-      driveFileId=files[0].id;
-      return;
-    }
-    // なければ新規作成（空JSON）
-    const metadata={name:DATA_FILE_NAME,mimeType:'application/json'};
-    const form=new FormData();
-    form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
-    form.append('file',new Blob([JSON.stringify({config:{},entries:{}})],{type:'application/json'}));
-    const createResp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-      method:'POST',
-      headers:{Authorization:'Bearer '+driveAccessToken},
-      body:form
-    });
-    const created=await createResp.json();
-    driveFileId=created.id;
-  }catch(e){
-    showConfigStatus('❌ Drive検索エラー: '+e.message);
-  }
-}
-
-// Google Drive からファイル内容を読み取り
-async function readFromDrive(){
-  if(!driveFileId||!driveAccessToken)return null;
-  try{
-    const resp=await fetch('https://www.googleapis.com/drive/v3/files/'+driveFileId+'?alt=media',{
-      headers:{Authorization:'Bearer '+driveAccessToken}
-    });
-    if(!resp.ok)return null;
-    return await resp.text();
-  }catch(e){return null;}
-}
-
-// Google Drive にファイル内容を書き込み（上書き）
-async function writeToDrive(content){
-  if(!driveFileId||!driveAccessToken)return false;
-  try{
-    const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+driveFileId+'?uploadType=media',{
-      method:'PATCH',
-      headers:{
-        Authorization:'Bearer '+driveAccessToken,
-        'Content-Type':'application/json'
-      },
-      body:content
-    });
-    return resp.ok;
-  }catch(e){return false;}
-}
-
-// ============ Master File Functions (explicit fileId) ============
+// ============ Drive 低レベルヘルパー ============
 async function readFromDriveById(fileId){
   if(!fileId||!driveAccessToken)return null;
   try{
@@ -1317,14 +1265,46 @@ async function writeToDriveById(fileId, content){
   try{
     const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=media',{
       method:'PATCH',
-      headers:{
-        Authorization:'Bearer '+driveAccessToken,
-        'Content-Type':'application/json'
-      },
+      headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
       body:content
     });
     return resp.ok;
   }catch(e){return false;}
+}
+
+// フォルダ内のファイルを名前で検索
+async function findFileInFolder(folderId, fileName){
+  try{
+    const resp=await gapi.client.drive.files.list({
+      q:"'"+folderId+"' in parents and name='"+fileName+"' and trashed=false",
+      fields:'files(id,name)',spaces:'drive'
+    });
+    const files=resp.result.files||[];
+    return files.length>0?files[0].id:null;
+  }catch(e){return null;}
+}
+
+// フォルダ内にファイルを作成
+async function createFileInFolder(folderId, fileName, content){
+  const metadata={name:fileName, parents:[folderId], mimeType:'application/json'};
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+  form.append('file',new Blob([content],{type:'application/json'}));
+  const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',headers:{Authorization:'Bearer '+driveAccessToken},body:form
+  });
+  const created=await resp.json();
+  return created.id;
+}
+
+// レガシー互換ヘルパー
+async function readFromDrive(){
+  if(!driveFileId||!driveAccessToken)return null;
+  return await readFromDriveById(driveFileId);
+}
+async function writeToDrive(content){
+  if(!driveFileId||!driveAccessToken)return false;
+  return await writeToDriveById(driveFileId,content);
 }
 
 // Master file operations
@@ -1400,28 +1380,39 @@ async function saveMasterData(){
 
 // Drive接続済みかどうか
 function isDriveConnected(){
-  return !!(driveAccessToken && driveFileId);
+  return !!(driveAccessToken && (currentFolderId || driveFileId));
 }
 
-// ============ Project Management Functions ============
+// ============ プロジェクト管理（フォルダ方式 + レガシー互換） ============
 async function listProjectFiles(){
   try{
-    const resp=await gapi.client.drive.files.list({
-      q:"(name contains 'KY_' or name='KY_data.json') and mimeType='application/json' and trashed=false",
-      fields:'files(id,name)',
-      spaces:'drive',
-      pageSize:100
+    const folderResp=await gapi.client.drive.files.list({
+      q:"name contains 'KY_' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+      fields:'files(id,name)',spaces:'drive',pageSize:100
     });
-    const files=resp.result.files||[];
+    const folders=folderResp.result.files||[];
+    const legacyResp=await gapi.client.drive.files.list({
+      q:"(name contains 'KY_' or name='KY_data.json') and mimeType='application/json' and trashed=false",
+      fields:'files(id,name)',spaces:'drive',pageSize:100
+    });
+    const legacyFiles=legacyResp.result.files||[];
     const result=[];
-    files.forEach(f=>{
+    folders.forEach(f=>{
+      let projName=f.name;
+      if(projName.startsWith('KY_'))projName=projName.substring(3);
+      result.push({name:projName, id:f.id, type:'folder'});
+    });
+    legacyFiles.forEach(f=>{
       if(f.name===MASTER_FILE_NAME)return;
       let projName=f.name;
-      // 旧形式 KY_data.json は「（旧データ）」として表示
-      if(projName==='KY_data.json'){projName='（旧データ）';result.push({name:projName,fileId:f.id});return;}
-      if(projName.startsWith('KY_'))projName=projName.substring(3);
-      if(projName.endsWith('.json'))projName=projName.substring(0,projName.length-5);
-      result.push({name:projName,fileId:f.id});
+      if(projName==='KY_data.json'){projName='（旧データ）';}
+      else{
+        if(projName.startsWith('KY_'))projName=projName.substring(3);
+        if(projName.endsWith('.json'))projName=projName.substring(0,projName.length-5);
+      }
+      if(/^\d{6}$/.test(projName))return;
+      if(result.some(r=>r.name===projName))return;
+      result.push({name:projName+'（旧形式）', id:f.id, type:'legacy'});
     });
     return result;
   }catch(e){return[];}
@@ -1432,130 +1423,201 @@ async function refreshProjectList(){
   const sel=document.getElementById('projectSelect');
   sel.innerHTML='<option value="">-- 工事を選択 --</option>';
   projectList.forEach(p=>{
-    sel.innerHTML+=`<option value="${p.fileId}">${p.name}</option>`;
+    sel.innerHTML+=`<option value="${p.id}">${p.name}</option>`;
   });
-  if(currentProjectFileId){sel.value=currentProjectFileId;}
+  const curId=currentFolderId||currentProjectFileId;
+  if(curId){sel.value=curId;}
 }
 
 async function onProjectSelect(){
   const sel=document.getElementById('projectSelect');
-  const fileId=sel.value;
-  if(!fileId)return;
-  await switchProject(fileId);
+  const id=sel.value;
+  if(!id)return;
+  const proj=projectList.find(p=>p.id===id);
+  if(!proj)return;
+  if(proj.type==='folder'){
+    await switchToFolder(proj.id);
+  }else{
+    await switchToLegacy(proj.id);
+  }
 }
 
-async function switchProject(fileId){
-  if(driveReady&&currentProjectFileId){
+async function switchToFolder(folderId){
+  if(driveReady&&(currentFolderId||currentProjectFileId)){
     autoSave();
-    await saveAllToDataFile(true);
+    await saveCurrentMonth(true);
   }
+  currentFolderId=folderId;
+  currentProjectFileId=null;
+  driveFileId=null;
+  const configId=await findFileInFolder(folderId, CONFIG_FILE_NAME);
+  if(configId){
+    const txt=await readFromDriveById(configId);
+    if(txt){try{allData.config=JSON.parse(txt);}catch(e){allData.config={};}}
+  }
+  document.getElementById('projectName').textContent=allData.config.projectName||'';
+  if(allData.config.creator){document.getElementById('creator').value=allData.config.creator;}
+  currentMonth=getMonthKey()||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  await loadMonthData(currentMonth);
+  applyCurrentDateData();
+  driveReady=true;
+  showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');
+}
+
+async function switchToLegacy(fileId){
+  if(driveReady&&(currentFolderId||currentProjectFileId)){
+    autoSave();
+    await saveCurrentMonth(true);
+  }
+  currentFolderId=null;
   currentProjectFileId=fileId;
   driveFileId=fileId;
-  const loaded=await loadAllFromDataFile();
-  if(loaded){
-    if(allData.config){
-      document.getElementById('projectName').textContent=allData.config.projectName||'';
-      if(allData.config.creator){
-        const sel=document.getElementById('creator');
-        sel.value=allData.config.creator;
+  currentMonth='';
+  currentMonthFileId=null;
+  const txt=await readFromDriveById(fileId);
+  if(txt){
+    try{
+      let cleaned=txt.replace(/[\u0000\s]+$/,'');
+      const lastBrace=cleaned.lastIndexOf('}');
+      if(lastBrace>=0)cleaned=cleaned.substring(0,lastBrace+1);
+      const parsed=JSON.parse(cleaned);
+      allData={config:parsed.config||{},entries:parsed.entries||{}};
+    }catch(e){allData={config:{},entries:{}};}
+  }
+  document.getElementById('projectName').textContent=allData.config.projectName||'';
+  if(allData.config.creator){document.getElementById('creator').value=allData.config.creator;}
+  applyCurrentDateData();
+  driveReady=true;
+  showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました（旧形式）');
+}
+
+function applyCurrentDateData(){
+  const k=getDateKey();
+  if(k&&allData.entries&&allData.entries[k]){
+    document.getElementById('workBlocks').innerHTML='';
+    wkId=0;
+    restoreFormData(allData.entries[k]);
+  }else{
+    document.getElementById('workBlocks').innerHTML='';
+    wkId=0;addWorkBlock();
+    document.querySelectorAll('[data-i]').forEach(c=>c.checked=false);
+    document.getElementById('inspNote').value='';
+    document.getElementById('notice').value='';
+    document.getElementById('safetyGoal').value='足元よし!！';
+    sigData={};renderSigs();
+  }
+}
+
+async function loadMonthData(month){
+  allData.entries={};
+  currentMonthFileId=null;
+  if(!currentFolderId||!month)return;
+  const fileName=month+'.json';
+  const fileId=await findFileInFolder(currentFolderId, fileName);
+  if(fileId){
+    currentMonthFileId=fileId;
+    const txt=await readFromDriveById(fileId);
+    if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};}catch(e){allData.entries={};}}
+  }
+}
+
+async function switchMonth(newMonth){
+  if(!currentFolderId)return;
+  await saveCurrentMonth(true);
+  currentMonth=newMonth;
+  await loadMonthData(newMonth);
+}
+
+async function saveCurrentMonth(silent){
+  try{
+    if(currentFolderId){
+      if(!currentMonth)return false;
+      const jsonStr=JSON.stringify({entries:allData.entries},null,2);
+      if(currentMonthFileId){
+        const ok=await writeToDriveById(currentMonthFileId, jsonStr);
+        if(!silent&&ok){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
+        if(!silent&&!ok)showConfigStatus('❌ 保存失敗');
+        return ok;
+      }else{
+        const fileName=currentMonth+'.json';
+        currentMonthFileId=await createFileInFolder(currentFolderId, fileName, jsonStr);
+        if(!silent){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
+        return true;
       }
     }
-    const k=getDateKey();
-    if(k&&allData.entries[k]){
-      document.getElementById('workBlocks').innerHTML='';
-      wkId=0;
-      restoreFormData(allData.entries[k]);
-    }else{
-      document.getElementById('workBlocks').innerHTML='';
-      wkId=0;
-      addWorkBlock();
-      document.querySelectorAll('[data-i]').forEach(c=>c.checked=false);
-      document.getElementById('inspNote').value='';
-      document.getElementById('notice').value='';
-      document.getElementById('safetyGoal').value='足元よし!！';
-      sigData={};
-      renderSigs();
+    if(currentProjectFileId){
+      const jsonStr=JSON.stringify(allData,null,2);
+      driveFileId=currentProjectFileId;
+      const ok=await writeToDrive(jsonStr);
+      if(!silent&&ok){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+cnt+'日分)');}
+      return ok;
     }
-  }
-  showConfigStatus('📂 工事「'+(allData.config?.projectName||'')+'」を読込みました');
-  driveReady=true;
+    return false;
+  }catch(e){if(!silent)showConfigStatus('❌ 保存失敗: '+e.message);return false;}
+}
+
+async function saveProjectConfig(){
+  if(!currentFolderId||!driveAccessToken)return;
+  const configId=await findFileInFolder(currentFolderId, CONFIG_FILE_NAME);
+  const configStr=JSON.stringify(allData.config,null,2);
+  if(configId){await writeToDriveById(configId, configStr);}
+  else{await createFileInFolder(currentFolderId, CONFIG_FILE_NAME, configStr);}
 }
 
 async function createNewProject(){
-  if(!driveAccessToken){
-    alert('先にGoogleドライブにログインしてください');
-    return;
-  }
+  if(!driveAccessToken){alert('先にGoogleドライブにログインしてください');return;}
   const name=prompt('新規工事名を入力してください');
   if(!name||!name.trim())return;
   const trimmed=name.trim();
-
-  if(driveReady&&currentProjectFileId){
-    autoSave();
-    await saveAllToDataFile(true);
-  }
-
-  const fileName='KY_'+trimmed+'.json';
-  const metadata={name:fileName,mimeType:'application/json'};
-  const initData={config:{projectName:trimmed,creator:''},entries:{}};
-  const form=new FormData();
-  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
-  form.append('file',new Blob([JSON.stringify(initData)],{type:'application/json'}));
-  const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-    method:'POST',
-    headers:{Authorization:'Bearer '+driveAccessToken},
-    body:form
+  if(driveReady&&(currentFolderId||currentProjectFileId)){autoSave();await saveCurrentMonth(true);}
+  const folderName='KY_'+trimmed;
+  const createResp=await gapi.client.drive.files.create({
+    resource:{name:folderName, mimeType:'application/vnd.google-apps.folder'},fields:'id'
   });
-  const created=await resp.json();
-
-  allData=initData;
+  const folderId=createResp.result.id;
+  const config={projectName:trimmed,creator:''};
+  await createFileInFolder(folderId, CONFIG_FILE_NAME, JSON.stringify(config,null,2));
+  currentFolderId=folderId;
+  currentProjectFileId=null;
+  driveFileId=null;
+  allData={config:config,entries:{}};
+  currentMonth=getMonthKey()||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  currentMonthFileId=null;
   await refreshProjectList();
-  document.getElementById('projectSelect').value=created.id;
-  await switchProject(created.id);
-
+  document.getElementById('projectSelect').value=folderId;
+  document.getElementById('projectName').textContent=trimmed;
   document.getElementById('workBlocks').innerHTML='';
-  wkId=0;
-  addWorkBlock();
+  wkId=0;addWorkBlock();
   document.querySelectorAll('[data-i]').forEach(c=>c.checked=false);
   document.getElementById('inspNote').value='';
   document.getElementById('notice').value='';
   document.getElementById('safetyGoal').value='足元よし!！';
-  sigData={};
-  renderSigs();
-
+  sigData={};renderSigs();
+  driveReady=true;
   showConfigStatus('🆕 新規工事「'+trimmed+'」を作成しました');
 }
 
 async function deleteCurrentProject(){
-  if(!currentProjectFileId){
-    alert('削除する工事が選択されていません');
-    return;
-  }
+  const id=currentFolderId||currentProjectFileId;
+  if(!id){alert('削除する工事が選択されていません');return;}
   const name=allData.config?.projectName||'';
   if(!confirm('工事「'+name+'」を削除しますか？\nこの操作は取り消せません。'))return;
   if(!confirm('本当に削除してよろしいですか？（最終確認）'))return;
-
-  await gapi.client.drive.files.update({fileId:currentProjectFileId,resource:{trashed:true}});
-
-  currentProjectFileId=null;
-  driveFileId=null;
+  await gapi.client.drive.files.update({fileId:id,resource:{trashed:true}});
+  currentFolderId=null;currentProjectFileId=null;driveFileId=null;
+  currentMonth='';currentMonthFileId=null;
   allData={config:{},entries:{}};
-
   await refreshProjectList();
   document.getElementById('projectName').textContent='';
   document.getElementById('workBlocks').innerHTML='';
-  wkId=0;
-  addWorkBlock();
-  sigData={};
-  renderSigs();
+  wkId=0;addWorkBlock();sigData={};renderSigs();
   driveReady=false;
-
   showConfigStatus('🗑 工事「'+name+'」を削除しました');
 }
 
-// 自動保存（KY_data.json のみを更新）
+// 自動保存
 function autoSave(){
-  if(!driveReady)return; // Drive読込完了前は何もしない
+  if(!driveReady)return;
   const key=getDateKey();
   if(!key)return;
   try{
@@ -1566,91 +1628,64 @@ function autoSave(){
       creator:document.getElementById('creator').value
     };
     allData.entries[key]=data;
-    // Drive接続済みなら自動書き出しをスケジュール
     scheduleDataFileSave();
   }catch(e){}
 }
 
-// KY_data.json を Google Drive に書き出す（debounce付き）
 function scheduleDataFileSave(){
   if(!isDriveConnected())return;
   clearTimeout(dataFileSaveTm);
-  dataFileSaveTm=setTimeout(()=>{saveAllToDataFile(true);},2000);
+  dataFileSaveTm=setTimeout(()=>{saveCurrentMonth(true);if(currentFolderId)saveProjectConfig();},2000);
 }
 
-// KY_data.json を即時書出（silent=true で成功メッセージ非表示）
-async function saveAllToDataFile(silent){
-  try{
-    // 書込前に現在の入力内容も同期
-    try{
-      const key=getDateKey();
-      if(key){
-        allData.entries[key]=collectFormData();
-        allData.config={
-          ...allData.config,
-          projectName:document.getElementById('projectName').textContent,
-          creator:document.getElementById('creator').value
-        };
-      }
-    }catch(e){}
-    const jsonStr=JSON.stringify(allData,null,2);
-
-    if(!isDriveConnected()){
-      if(!silent)showConfigStatus('❌ Google ドライブに接続されていません。ログインしてください。');
-      return false;
-    }
-
-    const ok=await writeToDrive(jsonStr);
-    if(ok){
-      const cnt=Object.keys(allData.entries).length;
-      if(!silent)showConfigStatus('✅ Google ドライブに保存 ('+cnt+'日分)');
-    }else{
-      if(!silent)showConfigStatus('❌ Google ドライブへの保存に失敗しました');
-    }
-    return ok;
-  }catch(e){
-    if(!silent)showConfigStatus('❌ 保存失敗: '+e.message);
-    return false;
-  }
-}
-
-// Google Drive から KY_data.json を読込み → allData に反映（唯一の情報源）
+// 互換用エイリアス
+async function saveAllToDataFile(silent){return await saveCurrentMonth(silent);}
 async function loadAllFromDataFile(){
+  if(currentFolderId){
+    await loadMonthData(currentMonth);
+    return Object.keys(allData.entries).length>0;
+  }
+  if(!driveFileId)return false;
+  const txt=await readFromDrive();
+  if(!txt)return false;
   try{
-    let txt=await readFromDrive();
-    if(!txt)return false;
-    txt=txt.replace(/[\u0000\s]+$/,'');
-    const lastBrace=txt.lastIndexOf('}');
-    if(lastBrace>=0)txt=txt.substring(0,lastBrace+1);
-    const parsed=JSON.parse(txt);
-    if(parsed&&typeof parsed==='object'&&parsed.entries&&typeof parsed.entries==='object'){
-      allData={
-        config:parsed.config||{},
-        entries:parsed.entries||{}
-      };
+    let cleaned=txt.replace(/[\u0000\s]+$/,'');
+    const lb=cleaned.lastIndexOf('}');
+    if(lb>=0)cleaned=cleaned.substring(0,lb+1);
+    const parsed=JSON.parse(cleaned);
+    if(parsed&&typeof parsed==='object'&&parsed.entries){
+      allData={config:parsed.config||{},entries:parsed.entries||{}};
       return true;
     }
   }catch(e){}
   return false;
 }
 
-// 全データを1つのJSONファイルとしてダウンロード（バックアップ用）
+// バックアップダウンロード
 async function downloadAll(){
   autoSave();
-  const all={
-    config:{...(allData.config||{})},
-    entries:{...(allData.entries||{})}
-  };
-  const pn=all.config.projectName||'KY活動';
-  const jsonStr=JSON.stringify(all,null,2);
-  const cnt=Object.keys(all.entries).length;
-  const blob=new Blob([jsonStr],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=pn+'.json';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showConfigStatus('✅ '+pn+'.json を書き出しました ('+cnt+'日分)');
+  const pn=allData.config?.projectName||'KY活動';
+  if(currentFolderId){
+    const all={config:allData.config,month:currentMonth,entries:allData.entries};
+    const jsonStr=JSON.stringify(all,null,2);
+    const cnt=Object.keys(allData.entries).length;
+    const blob=new Blob([jsonStr],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=pn+'_'+currentMonth+'.json';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showConfigStatus('✅ '+pn+'_'+currentMonth+'.json を書き出しました ('+cnt+'日分)');
+  }else{
+    const all={config:{...(allData.config||{})},entries:{...(allData.entries||{})}};
+    const jsonStr=JSON.stringify(all,null,2);
+    const cnt=Object.keys(all.entries).length;
+    const blob=new Blob([jsonStr],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=pn+'.json';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showConfigStatus('✅ '+pn+'.json を書き出しました ('+cnt+'日分)');
+  }
 }
 
 // 1つのJSONファイルから全データを読込
@@ -1714,13 +1749,7 @@ function clearForm(){
 // 新規工事開始（全履歴データを削除してゼロから）
 async function newProject(){
   const cnt=Object.keys(allData.entries||{}).length;
-  const msg=`現在の全履歴データ (${cnt}日分) を削除して新しい工事を開始しますか？\n\n` +
-            `削除される対象：\n` +
-            `・画面の入力内容\n` +
-            `・連携フォルダの KY_data.json の中身\n` +
-            `・ブラウザ内に残っている旧バージョンの履歴（あれば）\n\n` +
-            `※ バックアップフォルダ内の過去ファイルは残ります。\n` +
-            `※ この操作は取り消せません。`;
+  const msg=`現在の全履歴データ (${cnt}日分) を削除して新しい工事を開始しますか？\n\n※ この操作は取り消せません。`;
   if(!confirm(msg))return;
   if(!confirm('本当に削除してよろしいですか？（最終確認）'))return;
 
@@ -1757,27 +1786,28 @@ async function newProject(){
   sigData={};renderSigs();
   document.getElementById('workDate').value=localDateStr(new Date());
 
-  // 5) Google Drive の KY_data.json を空状態で上書き
+  // 5) Google Drive に保存
   if(isDriveConnected()){
-    try{
-      const emptyJson=JSON.stringify(allData,null,2);
-      await writeToDrive(emptyJson);
-    }catch(e){}
+    try{await saveCurrentMonth(true);}catch(e){}
   }
 
   showConfigStatus('🆕 新しい工事を開始しました（全履歴を削除）');
 }
 
-// 日付変更時：allData(KY_data.json) のみから読み込む
-function onDateChange(){
+// 日付変更時：月またぎ検出 + データ読込
+async function onDateChange(){
   const key=getDateKey();
   if(!key)return;
+  const newMonth=key.substring(0,6);
+  // フォルダ型で月が変わった場合 → 月次ファイルを切替
+  if(currentFolderId && newMonth !== currentMonth){
+    await switchMonth(newMonth);
+  }
   try{
     const data=(allData&&allData.entries&&allData.entries[key])||null;
     if(data){
       restoreFormData(data);
     }else{
-      // データなし → 設定(工事名・作成者)は保持、他はリセット
       const cr=document.getElementById('creator').value;
       document.getElementById('workBlocks').innerHTML='';
       wkId=0;addWorkBlock();
@@ -1807,7 +1837,7 @@ function restoreFormData(data){
     wkId=0;
     data.workBlocks.forEach(block=>{
       addWorkBlock();
-      const wbEls=document.querySelectorAll('.work-block');
+      const wbEls=document.querySelectorAll('#workBlocks .work-block');
       const wb=wbEls[wbEls.length-1];
       wb.querySelector('.wk-name').value=block.name||'';
       wb.querySelector('.wk-qty').value=block.qty||'';
@@ -2128,18 +2158,43 @@ function applyMasterOverrides(){
 }
 
 // ============ 前日コピー ============
-function copyPrevDay(){
+async function copyPrevDay(){
   const todayKey=getDateKey();
   if(!todayKey){alert('日付が未入力です');return;}
-  // allData.entries から今日より前の最新日付を探す
-  const keys=Object.keys(allData.entries||{}).filter(k=>k<todayKey).sort();
-  if(keys.length===0){
-    alert('コピー元となる過去の日付データがありません');
+  // 当月内で今日より前の最新日付を探す
+  let keys=Object.keys(allData.entries||{}).filter(k=>k<todayKey).sort();
+  if(keys.length>0){
+    const latestKey=keys[keys.length-1];
+    doCopyPrevDay(allData.entries[latestKey],latestKey);
     return;
   }
-  const latestKey=keys[keys.length-1];
-  const prevData=allData.entries[latestKey];
-  doCopyPrevDay(prevData,latestKey);
+  // フォルダ型の場合、前月データも検索
+  if(currentFolderId){
+    const todayMonth=todayKey.substring(0,6);
+    const y=parseInt(todayMonth.substring(0,4));
+    const m=parseInt(todayMonth.substring(4,6));
+    const prevM=m===1?12:m-1;
+    const prevY=m===1?y-1:y;
+    const prevMonth=String(prevY)+String(prevM).padStart(2,'0');
+    const prevFileName=prevMonth+'.json';
+    const prevFileId=await findFileInFolder(currentFolderId, prevFileName);
+    if(prevFileId){
+      const txt=await readFromDriveById(prevFileId);
+      if(txt){
+        try{
+          const parsed=JSON.parse(txt);
+          const prevEntries=parsed.entries||parsed||{};
+          const prevKeys=Object.keys(prevEntries).sort();
+          if(prevKeys.length>0){
+            const latestKey=prevKeys[prevKeys.length-1];
+            doCopyPrevDay(prevEntries[latestKey],latestKey);
+            return;
+          }
+        }catch(e){}
+      }
+    }
+  }
+  alert('コピー元となる過去の日付データがありません');
 }
 
 function doCopyPrevDay(prevData,srcKey){
@@ -2166,7 +2221,7 @@ function doCopyPrevDay(prevData,srcKey){
   document.getElementById('sigCount').value=keepSigCount;
   renderSigs();
   // リスク評価を再計算
-  document.querySelectorAll('.hazard-row').forEach(hr=>{
+  document.querySelectorAll('#workBlocks .hazard-row').forEach(hr=>{
     const sev=hr.querySelector('.hz-sev');
     if(sev)calcS(sev);
   });
