@@ -1055,8 +1055,13 @@ async function onDriveConnected(){
         for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
       }
     }
+    // 今日のデータを復元（既存のワークブロックをリセットしてから）
     const k=getDateKey();
-    if(k&&allData.entries[k])restoreFormData(allData.entries[k]);
+    if(k&&allData.entries[k]){
+      document.getElementById('workBlocks').innerHTML='';
+      wkId=0;
+      restoreFormData(allData.entries[k]);
+    }
     showConfigStatus('📂 Google ドライブから読込 ('+Object.keys(allData.entries).length+'日分)');
   }else{
     showConfigStatus('ℹ️ Google ドライブに接続しました（データファイルは新規作成されます）');
