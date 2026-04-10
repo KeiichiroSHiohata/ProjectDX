@@ -99,6 +99,7 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 .cbtn-data-load{background:#0891b2;color:#fff}.cbtn-data-load:hover{background:#0e7490}
 .config-bar .sep{border-left:1px solid #d1d5db;margin:0 2px;height:24px}
 .config-status{font-size:11px;color:#059669;margin-top:4px;text-align:center;min-height:16px}
+@media(max-width:768px){.desktop-only{display:none!important}}
 </style>
 </head>
 <body>
@@ -147,8 +148,8 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
   <div class="config-bar">
     <button class="cbtn cbtn-load" id="btnDriveLogin" onclick="handleDriveLogin()">🔐 ログイン</button>
     <button class="cbtn" style="background:#8b5cf6;color:#fff" onclick="openMasterEditor()">⚙ マスタ編集</button>
-    <button class="cbtn" style="background:#0891b2;color:#fff" onclick="downloadMasterExcel()">📥 マスタDL</button>
-    <button class="cbtn" style="background:#059669;color:#fff" onclick="document.getElementById('masterUploadInput').click()">📤 マスタ取込</button>
+    <button class="cbtn desktop-only" style="background:#0891b2;color:#fff" onclick="downloadMasterExcel()">📥 マスタDL</button>
+    <button class="cbtn desktop-only" style="background:#059669;color:#fff" onclick="document.getElementById('masterUploadInput').click()">📤 マスタ取込</button>
     <input type="file" id="masterUploadInput" accept=".xlsx,.xls" style="display:none" onchange="uploadMasterExcel(this)">
     <button class="cbtn cbtn-data-load" onclick="clearForm()">🗑 画面クリア</button>
   </div>
@@ -371,7 +372,7 @@ function toggleAll(type){
 let wkId=0;
 function getTotalSlots(){
   let n=0;
-  document.querySelectorAll('.work-block').forEach(wb=>{n+=wb.querySelectorAll('.hazard-row').length});
+  document.querySelectorAll('#workBlocks .work-block').forEach(wb=>{n+=wb.querySelectorAll('.hazard-row').length});
   return n;
 }
 function addWorkBlock(){
@@ -644,22 +645,11 @@ function renderSigs(){
   const oldData={...sigData};
   sigData={};
 
-  // Build worker options
-  let workerOpts='<option value="">-- 選択 --</option>';
-  masterData.workers.forEach(w=>{
-    workerOpts+=`<option value="${w.name}">${w.name}</option>`;
-  });
-
   for(let i=1;i<=n;i++){
     sigData[i]=oldData[i]||{name:'',health:'良好',png:null};
     const d=sigData[i];
     const card=document.createElement('div');card.className='sig-card';card.id='card_'+i;
     card.innerHTML=`
-      <div class="sc-name">
-        <select id="wsel_${i}" onclick="event.stopPropagation()" onchange="sigData[${i}].name=this.value" style="width:100%;font-size:10px;border:none;background:transparent;text-align:center">
-          ${workerOpts}
-        </select>
-      </div>
       <div class="sc-preview" id="prev_${i}">
         ${d.png?`<img src="${d.png}">`:'<span class="sc-placeholder">✍</span>'}
       </div>
@@ -671,9 +661,6 @@ function renderSigs(){
           <option value="不良"${d.health==='不良'?' selected':''}>不良</option>
         </select>
       </div>`;
-    // Set selected worker
-    const wsel=card.querySelector('#wsel_'+i);
-    if(d.name)wsel.value=d.name;
     card.addEventListener('click',()=>openModal(i));
     g.appendChild(card);
   }
@@ -992,7 +979,7 @@ async function exportExcel(){
       if(lv&&lv.checked)setStr(row,86,'✓');else clearVal(row,86);
     }
     const inspNote=document.getElementById('inspNote').value;
-    if(inspNote)setStr(17,71,inspNote);
+    if(inspNote)setStr(20,71,inspNote);
 
     // === 連絡事項・安全目標 ===
     setStr(29,1,document.getElementById('notice').value||'');
@@ -2193,8 +2180,7 @@ function refreshCreatorSelect(){
   const cur=sel.value;
   let html='<option value="">--</option>';
   masterData.workers.forEach(w=>{
-    const display=w.company?w.name+'（'+w.company+'）':w.name;
-    html+=`<option value="${w.name}"${w.name===cur?' selected':''}>${display}</option>`;
+    html+=`<option value="${w.name}"${w.name===cur?' selected':''}>${w.name}</option>`;
   });
   sel.innerHTML=html;
 }
