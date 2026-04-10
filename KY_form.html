@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KY活動表 入力フォーム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- Google Identity Services (OAuth2) + Google API -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#f0f2f5;color:#333;padding:12px}
@@ -131,16 +134,12 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 
 <!-- データ管理 -->
 <div class="section">
-  <div class="section-title">データ管理 <span id="dataModeLabel" style="font-size:10px;color:#6b7280;font-weight:400">（同フォルダの KY_data.json に自動保存）</span></div>
-  <div id="mobileHint" style="display:none;background:#eef2ff;border:1px solid #6366f1;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#3730a3;line-height:1.5">
-    📱 <b>スマホ版の使い方</b><br>
-    ① Google ドライブの KY フォルダにある <b>KY_data.json</b> を「📂 ファイルから読込」で開く<br>
-    ② 入力後「💾 保存」を押すと <b>KY_data.json</b> がダウンロードされます<br>
-    ③ ダウンロードしたファイルを Google ドライブの KY フォルダに上書き保存してください
+  <div class="section-title">データ管理 <span id="dataModeLabel" style="font-size:10px;color:#6b7280;font-weight:400">（Google ドライブに自動保存）</span></div>
+  <div id="driveStatus" style="background:#eef2ff;border:1px solid #6366f1;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#3730a3;line-height:1.5">
+    🔐 Google ドライブに接続するには「ログイン」ボタンを押してください
   </div>
   <div class="config-bar">
-    <button class="cbtn cbtn-load" onclick="document.getElementById('dataFileInput').click()">📂 ファイルから読込</button>
-    <input type="file" id="dataFileInput" accept=".json" style="display:none" onchange="loadDataFile(event)">
+    <button class="cbtn cbtn-load" id="btnDriveLogin" onclick="handleDriveLogin()">🔐 ログイン</button>
     <button class="cbtn" style="background:#8b5cf6;color:#fff" onclick="openMasterEditor()">⚙ マスタ編集</button>
     <button class="cbtn" style="background:#f59e0b;color:#fff" onclick="newProject()">🆕 新規工事</button>
     <button class="cbtn cbtn-data-load" onclick="clearForm()">🗑 画面クリア</button>
@@ -985,207 +984,170 @@ function collectFormData(){
   return data;
 }
 
-// ディレクトリハンドル（同一フォルダ書き込み用）
-let dirHandle=null;
+// ============ Google Drive API 連携 ============
+const DRIVE_CLIENT_ID='284823490637-5i3bmm35ncug6k486gidq3obgnb8ca3s.apps.googleusercontent.com';
+const DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
+let driveAccessToken=null;
+let driveFileId=null; // KY_data.json の Google Drive 上のファイルID
+let gapiInited=false;
+let gisInited=false;
+let tokenClient=null;
 
-// スマホ判定：File System Access API がない、または Google ドライブとの
-// 相性が悪いモバイル環境ではダウンロード方式にフォールバックする
-function shouldUseFallback(){
-  if(!window.showDirectoryPicker)return true;
-  if(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent))return true;
-  return false;
-}
-
-// フォールバック用：KY_data.json をブラウザダウンロードする
-function downloadJsonFallback(jsonStr){
-  try{
-    const blob=new Blob([jsonStr],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=DATA_FILE_NAME;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    return true;
-  }catch(e){return false;}
-}
-
-// ============ IndexedDB: dirHandle を永続化 ============
-const IDB_NAME='KY_form_db';
-const IDB_STORE='handles';
-function idbOpen(){
-  return new Promise((res,rej)=>{
-    const req=indexedDB.open(IDB_NAME,1);
-    req.onupgradeneeded=()=>req.result.createObjectStore(IDB_STORE);
-    req.onsuccess=()=>res(req.result);
-    req.onerror=()=>rej(req.error);
+// GAPI (Google API client) 初期化
+function initGapi(){
+  return new Promise((resolve)=>{
+    gapi.load('client',async()=>{
+      await gapi.client.init({});
+      await gapi.client.load('drive','v3');
+      gapiInited=true;
+      resolve();
+    });
   });
 }
-async function idbSetHandle(handle){
-  try{
-    const db=await idbOpen();
-    return new Promise((res,rej)=>{
-      const tx=db.transaction(IDB_STORE,'readwrite');
-      tx.objectStore(IDB_STORE).put(handle,'dirHandle');
-      tx.oncomplete=()=>res(true);
-      tx.onerror=()=>rej(tx.error);
-    });
-  }catch(e){return false;}
+
+// GIS (Google Identity Services) 初期化
+function initGis(){
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE_CLIENT_ID,
+    scope:DRIVE_SCOPES,
+    callback:(resp)=>{
+      if(resp.error)return;
+      driveAccessToken=resp.access_token;
+      onDriveConnected();
+    }
+  });
+  gisInited=true;
 }
-async function idbGetHandle(){
+
+// ログインボタン押下
+function handleDriveLogin(){
+  if(!gapiInited||!gisInited){
+    showConfigStatus('⏳ Google API 読込中…少々お待ちください');
+    setTimeout(handleDriveLogin,500);
+    return;
+  }
+  tokenClient.requestAccessToken();
+}
+
+// Drive接続成功後の処理
+async function onDriveConnected(){
+  const statusEl=document.getElementById('driveStatus');
+  if(statusEl){
+    statusEl.style.background='#ecfdf5';
+    statusEl.style.borderColor='#059669';
+    statusEl.style.color='#047857';
+    statusEl.innerHTML='✅ Google ドライブに接続済み';
+  }
+  const btn=document.getElementById('btnDriveLogin');
+  if(btn){btn.textContent='✅ 接続済み';btn.disabled=true;btn.style.opacity='0.6';}
+  // KY_data.json を検索して読み込み
+  await findOrCreateDataFile();
+  const loaded=await loadAllFromDataFile();
+  if(loaded){
+    applyMasterOverrides();
+    mergeCustomCreators();
+    refreshCreatorSelect();
+    refreshAllHazardSelects();
+    if(allData.config){
+      if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
+      if(allData.config.creator){
+        const sel=document.getElementById('creator');
+        for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
+      }
+    }
+    const k=getDateKey();
+    if(k&&allData.entries[k])restoreFormData(allData.entries[k]);
+    showConfigStatus('📂 Google ドライブから読込 ('+Object.keys(allData.entries).length+'日分)');
+  }else{
+    showConfigStatus('ℹ️ Google ドライブに接続しました（データファイルは新規作成されます）');
+  }
+}
+
+// Google Drive 上で KY_data.json を検索、なければ作成
+async function findOrCreateDataFile(){
   try{
-    const db=await idbOpen();
-    return new Promise((res)=>{
-      const tx=db.transaction(IDB_STORE,'readonly');
-      const req=tx.objectStore(IDB_STORE).get('dirHandle');
-      req.onsuccess=()=>res(req.result||null);
-      req.onerror=()=>res(null);
+    // まず検索
+    const resp=await gapi.client.drive.files.list({
+      q:"name='"+DATA_FILE_NAME+"' and trashed=false",
+      fields:'files(id,name)',
+      spaces:'drive'
     });
+    const files=resp.result.files||[];
+    if(files.length>0){
+      driveFileId=files[0].id;
+      return;
+    }
+    // なければ新規作成（空JSON）
+    const metadata={name:DATA_FILE_NAME,mimeType:'application/json'};
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+    form.append('file',new Blob([JSON.stringify({config:{},entries:{}})],{type:'application/json'}));
+    const createResp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+driveAccessToken},
+      body:form
+    });
+    const created=await createResp.json();
+    driveFileId=created.id;
+  }catch(e){
+    showConfigStatus('❌ Drive検索エラー: '+e.message);
+  }
+}
+
+// Google Drive からファイル内容を読み取り
+async function readFromDrive(){
+  if(!driveFileId||!driveAccessToken)return null;
+  try{
+    const resp=await fetch('https://www.googleapis.com/drive/v3/files/'+driveFileId+'?alt=media',{
+      headers:{Authorization:'Bearer '+driveAccessToken}
+    });
+    if(!resp.ok)return null;
+    return await resp.text();
   }catch(e){return null;}
 }
-// 保存済みdirHandleを復元（queryPermissionで権限確認）
-async function restoreDirHandle(){
-  if(shouldUseFallback())return false;
-  const h=await idbGetHandle();
-  if(!h)return false;
+
+// Google Drive にファイル内容を書き込み（上書き）
+async function writeToDrive(content){
+  if(!driveFileId||!driveAccessToken)return false;
   try{
-    // まず queryPermission で確認（granted なら即利用）
-    let perm='prompt';
-    try{perm=await h.queryPermission({mode:'readwrite'});}catch(e){}
-    if(perm==='granted'){dirHandle=h;return true;}
-    // 権限が prompt でも、ハンドル自体が生きていれば直接読取を試みる
-    // （一部ブラウザでは読取のみ権限が残っている場合がある）
-    try{
-      const testFh=await h.getFileHandle(DATA_FILE_NAME);
-      await testFh.getFile();
-      dirHandle=h;
-      return true;
-    }catch(e){}
-    // 'prompt' の場合は初回クリック時に権限再取得
-    return new Promise((resolve)=>{
-      const handler=async()=>{
-        document.removeEventListener('click',handler,true);
-        try{
-          const p=await h.requestPermission({mode:'readwrite'});
-          if(p==='granted'){
-            dirHandle=h;
-            const loaded=await loadAllFromDataFile();
-            if(loaded){
-              const k=getDateKey();
-              if(k&&allData.entries[k])restoreFormData(allData.entries[k]);
-              if(allData.config){
-                if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
-                if(allData.config.creator){
-                  const sel=document.getElementById('creator');
-                  for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
-                }
-              }
-              showConfigStatus('📂 '+DATA_FILE_NAME+' から自動読込 ('+Object.keys(allData.entries).length+'日分)');
-            }
-          }
-        }catch(e){}
-        resolve(false);
-      };
-      document.addEventListener('click',handler,true);
+    const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+driveFileId+'?uploadType=media',{
+      method:'PATCH',
+      headers:{
+        Authorization:'Bearer '+driveAccessToken,
+        'Content-Type':'application/json'
+      },
+      body:content
     });
+    return resp.ok;
   }catch(e){return false;}
 }
-
-// 同じフォルダにファイルを書き込むヘルパー
-async function writeToSameFolder(fileName,content,mimeType){
-  if(!dirHandle){
-    // スマホ等のフォールバック環境では初回セットアップを行わない
-    if(shouldUseFallback()) return false;
-    // 初回はユーザーにフォルダ選択を求める
-    if(!window.showDirectoryPicker) return false;
-    // 初回のみ、選ぶべきフォルダを明確に案内
-    alert('【初回セットアップ】\n\nこの KY_form.html ファイルが置かれているフォルダを選択してください。\n\n選択したフォルダ内に以下が自動作成されます：\n・KY_data.json （入力データ本体）\n・バックアップ\\ （バックアップフォルダ）\n\n次の画面で KY_form.html と同じフォルダを選んで「選択」を押してください。');
-    try{
-      dirHandle=await showDirectoryPicker({mode:'readwrite'});
-      await idbSetHandle(dirHandle);
-      // 初回セットアップ時にバックアップフォルダを即時作成
-      try{await dirHandle.getDirectoryHandle(BACKUP_DIR_NAME,{create:true});}catch(e){}
-    }catch(e){return false;}
-  }
-  try{
-    const fh=await dirHandle.getFileHandle(fileName,{create:true});
-    const w=await fh.createWritable();
-    await w.write(typeof content==='string'?content:content);
-    await w.close();
-    return true;
-  }catch(e){
-    // 権限が切れた場合再取得
-    try{
-      dirHandle=await showDirectoryPicker({mode:'readwrite'});
-      await idbSetHandle(dirHandle);
-      const fh=await dirHandle.getFileHandle(fileName,{create:true});
-      const w=await fh.createWritable();
-      await w.write(typeof content==='string'?content:content);
-      await w.close();
-      return true;
-    }catch(e2){return false;}
-  }
+// Drive接続済みかどうか
+function isDriveConnected(){
+  return !!(driveAccessToken && driveFileId);
 }
 
-// 同じフォルダからファイルを読み込むヘルパー
-async function readFromSameFolder(fileName){
-  // まずfetchで試行（file://プロトコルでも動く場合がある）
-  try{
-    const r=await fetch('./'+fileName);
-    if(r.ok)return await r.text();
-  }catch(e){}
-  // dirHandleがあればそちらから読む
-  if(dirHandle){
-    try{
-      const fh=await dirHandle.getFileHandle(fileName);
-      const f=await fh.getFile();
-      return await f.text();
-    }catch(e){}
-  }
-  return null;
-}
-
-// 自動保存（KY_data.json のみを更新・localStorageは使わない）
+// 自動保存（KY_data.json のみを更新）
 function autoSave(){
   const key=getDateKey();
   if(!key)return;
   try{
     const data=collectFormData();
-    // インメモリ allData を更新（KY_data.json と同じ構造）
     allData.config={
       ...(allData.config||{}),
       projectName:document.getElementById('projectName').value,
       creator:document.getElementById('creator').value
     };
     allData.entries[key]=data;
-    // KY_data.json への書込をスケジュール（dirHandleがある時だけサイレント）
+    // Drive接続済みなら自動書き出しをスケジュール
     scheduleDataFileSave();
   }catch(e){}
 }
 
-// KY_data.json を同フォルダに書き出す（debounce付き）
+// KY_data.json を Google Drive に書き出す（debounce付き）
 function scheduleDataFileSave(){
-  if(!dirHandle)return; // フォルダ未連携ならスキップ
+  if(!isDriveConnected())return;
   clearTimeout(dataFileSaveTm);
-  dataFileSaveTm=setTimeout(()=>{saveAllToDataFile(true);},1500);
-}
-
-// バックアップサブフォルダ（同フォルダ直下の「バックアップ」）に日付別JSONを書出
-const BACKUP_DIR_NAME='バックアップ';
-async function writeBackupToSubfolder(jsonStr){
-  if(!dirHandle)return false;
-  try{
-    const backupDir=await dirHandle.getDirectoryHandle(BACKUP_DIR_NAME,{create:true});
-    // 当日日付でファイル名を作成（その日の間は上書き更新 = 日次スナップショット）
-    const today=localDateStr(new Date()).replace(/-/g,'');
-    const fh=await backupDir.getFileHandle('KY_data_'+today+'.json',{create:true});
-    const w=await fh.createWritable();
-    await w.write(jsonStr);
-    await w.close();
-    return true;
-  }catch(e){return false;}
+  dataFileSaveTm=setTimeout(()=>{saveAllToDataFile(true);},2000);
 }
 
 // KY_data.json を即時書出（silent=true で成功メッセージ非表示）
@@ -1205,30 +1167,18 @@ async function saveAllToDataFile(silent){
     }catch(e){}
     const jsonStr=JSON.stringify(allData,null,2);
 
-    // スマホ等のフォールバック環境はダウンロード方式
-    if(shouldUseFallback()){
-      if(silent)return false; // 自動保存ではダウンロードさせない（明示ボタン時のみ）
-      const ok=downloadJsonFallback(jsonStr);
-      if(ok){
-        const cnt=Object.keys(allData.entries).length;
-        showConfigStatus('💾 '+DATA_FILE_NAME+' をダウンロードしました ('+cnt+'日分) → Google ドライブの KY フォルダに上書き保存してください');
-      }else{
-        showConfigStatus('❌ ダウンロードに失敗しました');
-      }
-      return ok;
+    if(!isDriveConnected()){
+      if(!silent)showConfigStatus('❌ Google ドライブに接続されていません。ログインしてください。');
+      return false;
     }
 
-    // PC: フォルダ連携経由で書込
-    const ok=await writeToSameFolder(DATA_FILE_NAME,jsonStr);
+    const ok=await writeToDrive(jsonStr);
     if(ok){
-      // 成功したらバックアップフォルダにも同時書出（完全自動同期）
-      await writeBackupToSubfolder(jsonStr);
       const cnt=Object.keys(allData.entries).length;
-      if(!silent)showConfigStatus('✅ '+DATA_FILE_NAME+' に保存 ('+cnt+'日分)');
+      if(!silent)showConfigStatus('✅ Google ドライブに保存 ('+cnt+'日分)');
     }else{
-      if(!silent)showConfigStatus('❌ フォルダ連携に失敗しました');
+      if(!silent)showConfigStatus('❌ Google ドライブへの保存に失敗しました');
     }
-    updateSyncBanner();
     return ok;
   }catch(e){
     if(!silent)showConfigStatus('❌ 保存失敗: '+e.message);
@@ -1236,14 +1186,12 @@ async function saveAllToDataFile(silent){
   }
 }
 
-// KY_data.json を同フォルダから読込み → allData に反映（唯一の情報源）
+// Google Drive から KY_data.json を読込み → allData に反映（唯一の情報源）
 async function loadAllFromDataFile(){
   try{
-    let txt=await readFromSameFolder(DATA_FILE_NAME);
+    let txt=await readFromDrive();
     if(!txt)return false;
-    // 末尾のnullバイト・空白・制御文字を除去（過去の書込みで混入している場合あり）
     txt=txt.replace(/[\u0000\s]+$/,'');
-    // 末尾の '}' 以降に余計な文字があれば切り詰める
     const lastBrace=txt.lastIndexOf('}');
     if(lastBrace>=0)txt=txt.substring(0,lastBrace+1);
     const parsed=JSON.parse(txt);
@@ -1258,7 +1206,7 @@ async function loadAllFromDataFile(){
   return false;
 }
 
-// 全データを1つのJSONファイルとして書出（バックアップ）
+// 全データを1つのJSONファイルとしてダウンロード（バックアップ用）
 async function downloadAll(){
   autoSave();
   const all={
@@ -1268,24 +1216,6 @@ async function downloadAll(){
   const pn=all.config.projectName||'KY活動';
   const jsonStr=JSON.stringify(all,null,2);
   const cnt=Object.keys(all.entries).length;
-
-  // File System Access API対応ブラウザは「名前を付けて保存」ダイアログ
-  if(window.showSaveFilePicker){
-    try{
-      const handle=await showSaveFilePicker({
-        suggestedName:pn+'.json',
-        types:[{description:'JSONファイル',accept:{'application/json':['.json']}}]
-      });
-      const writable=await handle.createWritable();
-      await writable.write(jsonStr);
-      await writable.close();
-      showConfigStatus('✅ '+handle.name+' を保存しました ('+cnt+'日分)');
-      return;
-    }catch(err){
-      if(err.name==='AbortError')return; // キャンセル
-    }
-  }
-  // フォールバック: 従来のダウンロード
   const blob=new Blob([jsonStr],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1313,8 +1243,8 @@ function loadDataFile(ev){
           const sel=document.getElementById('creator');
           for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
         }
-        // フォルダ連携済みならKY_data.jsonにも反映
-        if(dirHandle)scheduleDataFileSave();
+        // Drive連携済みならKY_data.jsonにも反映
+        if(isDriveConnected())scheduleDataFileSave();
         // 今日のデータがあれば表示、なければ最新日付を表示
         const todayKey=getDateKey();
         const keys=Object.keys(allData.entries).sort().reverse();
@@ -1400,13 +1330,11 @@ async function newProject(){
   sigData={};renderSigs();
   document.getElementById('workDate').value=localDateStr(new Date());
 
-  // 5) 連携フォルダの KY_data.json を空状態で上書き
-  if(dirHandle){
+  // 5) Google Drive の KY_data.json を空状態で上書き
+  if(isDriveConnected()){
     try{
       const emptyJson=JSON.stringify(allData,null,2);
-      await writeToSameFolder(DATA_FILE_NAME,emptyJson);
-      // バックアップも同時更新（当日ファイル）
-      await writeBackupToSubfolder(emptyJson);
+      await writeToDrive(emptyJson);
     }catch(e){}
   }
 
@@ -1835,19 +1763,7 @@ function mergeCustomCreators(){
 
 // ============ 同期バナー更新 ============
 function updateSyncBanner(){
-  const warn=document.getElementById('syncBanner');
-  const ok=document.getElementById('syncOk');
-  if(!warn||!ok)return;
-  if(dirHandle){
-    warn.style.display='none';
-    ok.style.display='flex';
-    const cnt=Object.keys(allData.entries||{}).length;
-    const el=document.getElementById('syncCnt');
-    if(el)el.textContent=cnt;
-  }else{
-    warn.style.display='flex';
-    ok.style.display='none';
-  }
+  // Drive版ではsyncBannerは使わない（driveStatusで代替）
 }
 
 function showConfigStatus(msg){
@@ -1863,16 +1779,7 @@ function showConfigStatus(msg){
 window.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('workDate').value=localDateStr(new Date());
 
-  // スマホ等のフォールバック環境なら案内を表示し、自動同期ラベルを切り替え
-  if(shouldUseFallback()){
-    const hint=document.getElementById('mobileHint');
-    if(hint)hint.style.display='block';
-    const lbl=document.getElementById('dataModeLabel');
-    if(lbl)lbl.textContent='（ファイル読込＋ダウンロード方式）';
-  }
-
   // 旧バージョンの localStorage 履歴を起動時にクリーンアップ
-  // （KY_data.json を唯一の情報源にするため）
   try{
     const toDel=[];
     for(let i=0;i<localStorage.length;i++){
@@ -1882,51 +1789,23 @@ window.addEventListener('DOMContentLoaded',async()=>{
     toDel.forEach(k=>localStorage.removeItem(k));
   }catch(e){}
 
-  // 0) 保存済みdirHandleをIndexedDBから復元（権限granted時は即時利用）
-  try{await restoreDirHandle();}catch(e){}
-
-  // 1) KY_data.json（統合ファイル）を同フォルダから読込 → allDataへ
-  //    a) fetch('./KY_data.json') … http配信時に動作
-  //    b) dirHandle経由 … file://でも復元済みハンドル権限があれば動作
-  let dataLoaded=false;
+  // Google API ライブラリの初期化
+  const waitForGapi=()=>new Promise(r=>{
+    const check=()=>(typeof gapi!=='undefined')?r():setTimeout(check,100);
+    check();
+  });
+  const waitForGis=()=>new Promise(r=>{
+    const check=()=>(typeof google!=='undefined'&&google.accounts)?r():setTimeout(check,100);
+    check();
+  });
   try{
-    dataLoaded=await loadAllFromDataFile();
-  }catch(e){}
-
-  // 2) まだ読めていない & dirHandle未取得なら、初回クリック時に自動でフォルダ選択を促す
-  //    （スマホ等のフォールバック環境では案内を出さない）
-  if(!dataLoaded&&!dirHandle&&!shouldUseFallback()){
-    const firstClickHandler=async()=>{
-      document.removeEventListener('click',firstClickHandler,true);
-      alert('【初回セットアップ】\n\nこの KY_form.html ファイルが置かれているフォルダを選択してください。\n\n選択したフォルダ内に以下が自動作成されます：\n・KY_data.json （入力データ本体）\n・バックアップ\\ （バックアップフォルダ）\n\n次の画面で KY_form.html と同じフォルダを選んで「選択」を押してください。');
-      try{
-        dirHandle=await showDirectoryPicker({mode:'readwrite'});
-        await idbSetHandle(dirHandle);
-        // バックアップフォルダを即時作成
-        try{await dirHandle.getDirectoryHandle(BACKUP_DIR_NAME,{create:true});}catch(e){}
-        const loaded=await loadAllFromDataFile();
-        if(loaded){
-          applyMasterOverrides();
-          mergeCustomCreators();
-          refreshCreatorSelect();
-          refreshAllHazardSelects();
-          if(allData.config){
-            if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
-            if(allData.config.creator){
-              const sel=document.getElementById('creator');
-              for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
-            }
-          }
-          const k=getDateKey();
-          if(k&&allData.entries[k])restoreFormData(allData.entries[k]);
-          showConfigStatus('📂 '+DATA_FILE_NAME+' から読込 ('+Object.keys(allData.entries).length+'日分)');
-        }else{
-          showConfigStatus('ℹ️ フォルダを連携しました（KY_data.json はまだ存在しません）');
-        }
-      }catch(e){}
-    };
-    document.addEventListener('click',firstClickHandler,true);
-  }
+    await waitForGapi();
+    await initGapi();
+  }catch(e){console.warn('GAPI init failed',e);}
+  try{
+    await waitForGis();
+    initGis();
+  }catch(e){console.warn('GIS init failed',e);}
 
   // マスタ上書きを先に適用してから、selects生成・ブロック生成
   applyMasterOverrides();
@@ -1935,29 +1814,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
   addWorkBlock();
   renderSigs();
 
-  // 2) 設定の復元: allData.config（KY_data.json）のみ
-  if(allData.config){
-    if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
-    if(allData.config.creator){
-      const sel=document.getElementById('creator');
-      for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
-    }
-  }
-
-  // 3) 今日の日付のデータを復元: allData のみ
-  const todayKey=getDateKey();
-  try{
-    if(allData&&allData.entries&&allData.entries[todayKey]){
-      restoreFormData(allData.entries[todayKey]);
-    }
-  }catch(e){}
-
-  if(dataLoaded){
-    const cnt=Object.keys(allData.entries).length;
-    showConfigStatus('📂 '+DATA_FILE_NAME+' から読込 ('+cnt+'日分)');
-  }
-  updateSyncBanner();
-
   // 自動保存: 30秒ごと + ページ離脱時
   setInterval(autoSave,30000);
   window.addEventListener('beforeunload',autoSave);
@@ -1965,9 +1821,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   let saveTm=null;
   const scheduleSave=()=>{clearTimeout(saveTm);saveTm=setTimeout(autoSave,2000);};
   document.querySelector('.container').addEventListener('change',scheduleSave);
-  // 工事名はinputイベントでも自動保存（フォーカスアウトを待たずに反映）
   document.getElementById('projectName').addEventListener('input',scheduleSave);
-  // 作成者のselect変更時は即時保存
   document.getElementById('creator').addEventListener('change',()=>{autoSave();});
 });
 </script>
