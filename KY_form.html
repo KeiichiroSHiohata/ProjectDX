@@ -104,6 +104,20 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 <div class="container">
 <h1>KY活動表 入力フォーム</h1>
 
+<!-- 工事選択 -->
+<div class="section" id="projectSection">
+  <div class="section-title">工事選択</div>
+  <div class="form-row" style="align-items:center">
+    <div class="fg f3">
+      <select id="projectSelect" onchange="onProjectSelect()" style="font-size:14px;padding:8px;border:2px solid #1a56db;border-radius:6px">
+        <option value="">-- ログインしてください --</option>
+      </select>
+    </div>
+    <button class="btn btn-add" onclick="createNewProject()">＋ 新規工事</button>
+    <button class="btn btn-del" onclick="deleteCurrentProject()">🗑 削除</button>
+  </div>
+</div>
+
 <!-- 上部アクションバー -->
 <div class="action-bar" style="display:flex;justify-content:flex-end;margin-bottom:10px">
   <button class="cbtn cbtn-data-save" onclick="saveAllToDataFile(false)">💾 保存</button>
@@ -113,13 +127,9 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 <div class="section">
   <div class="section-title">基本情報</div>
   <div class="form-row">
-    <div class="fg f3"><label>工事名</label><input type="text" id="projectName" value="" placeholder="工事名を入力"></div>
+    <div class="fg f3"><label>工事名</label><span id="projectName" style="font-size:14px;font-weight:600;color:#1e40af;padding:6px 0"></span></div>
     <div class="fg f1"><label>作成者</label>
-      <div style="display:flex;gap:4px;align-items:center">
-        <select id="creator" style="flex:1;min-width:90px"></select>
-        <button class="nbtn" onclick="addCreator()" title="作成者を追加" style="padding:6px 10px;font-size:14px">＋</button>
-        <button class="nbtn" onclick="removeCreator()" title="選択中の作成者を削除" style="padding:6px 10px;font-size:14px;color:#ef4444">−</button>
-      </div>
+      <select id="creator" style="flex:1;min-width:90px"></select>
     </div>
     <div class="fg" style="flex:none">
       <label>日付</label>
@@ -141,7 +151,6 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
   <div class="config-bar">
     <button class="cbtn cbtn-load" id="btnDriveLogin" onclick="handleDriveLogin()">🔐 ログイン</button>
     <button class="cbtn" style="background:#8b5cf6;color:#fff" onclick="openMasterEditor()">⚙ マスタ編集</button>
-    <button class="cbtn" style="background:#f59e0b;color:#fff" onclick="newProject()">🆕 新規工事</button>
     <button class="cbtn cbtn-data-load" onclick="clearForm()">🗑 画面クリア</button>
   </div>
   <div class="config-status" id="configStatus"></div>
@@ -200,11 +209,32 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
       <button onclick="closeMasterEditor()">&times;</button>
     </div>
     <div style="padding:10px 16px;background:#f9fafb;display:flex;gap:6px;border-bottom:1px solid #e5e7eb">
+      <button class="btn btn-add-sm" onclick="showMasterTab('worker')" id="mtab_worker" style="background:#6b7280">従事者</button>
+      <button class="btn btn-add-sm" onclick="showMasterTab('workitem')" id="mtab_workitem" style="background:#6b7280">作業</button>
       <button class="btn btn-add-sm" onclick="showMasterTab('hazard')" id="mtab_hazard" style="background:#1a56db">危険要因</button>
       <button class="btn btn-add-sm" onclick="showMasterTab('measure')" id="mtab_measure" style="background:#6b7280">安全対策</button>
       <button class="btn btn-add-sm" onclick="resetMasterDefaults()" style="background:#ef4444;margin-left:auto">初期値に戻す</button>
     </div>
     <div style="padding:12px 16px;overflow:auto;flex:1;background:#fff">
+      <div id="mpane_worker" style="display:none">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">従事者の名前と所属会社を管理します。ここで登録した従事者が署名欄と作成者の選択肢に表示されます。</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="workerTable">
+          <thead>
+            <tr style="background:#eef2ff">
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:40%">名前</th>
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:45%">所属会社</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:15%">削除</th>
+            </tr>
+          </thead>
+          <tbody id="workerTbody"></tbody>
+        </table>
+        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addWorkerMasterRow()">＋ 従事者を追加</button>
+      </div>
+      <div id="mpane_workitem" style="display:none">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">よく使う作業と紐づく危険要因を登録します。作業ブロックで選択すると危険要因が自動セットされます。</p>
+        <div id="workItemList"></div>
+        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addWorkItemMasterBlock()">＋ 作業を追加</button>
+      </div>
       <div id="mpane_hazard">
         <p style="font-size:11px;color:#6b7280;margin-bottom:8px">危険要因名・重大性・頻度・デフォルト安全対策を編集できます。新規追加・削除も可能です。</p>
         <table style="width:100%;border-collapse:collapse;font-size:12px" id="hazardTable">
@@ -353,8 +383,18 @@ function addWorkBlock(){
   if(getTotalSlots()>=10){alert('最大10スロットに達しています');return}
   wkId++;
   const d=document.createElement('div');d.className='work-block';d.id='wb_'+wkId;
+
+  // Build work item options
+  let wiOpts='<option value="">-- 作業マスタから選択 --</option>';
+  masterData.workItems.forEach((wi,idx)=>{
+    wiOpts+=`<option value="${idx}">${wi.name}</option>`;
+  });
+
   d.innerHTML=`
     <div class="work-header"><span class="work-label">作業内容 ${wkId}</span><button class="btn btn-del" onclick="this.closest('.work-block').remove()">削除</button></div>
+    <div class="form-row" style="margin-bottom:4px">
+      <div class="fg f2"><label>作業マスタから選択</label><select class="wk-master" onchange="onWorkMasterSelect(this)" style="background:#fffbeb;border-color:#f59e0b">${wiOpts}</select></div>
+    </div>
     <div class="form-row">
       <div class="fg f3"><label>作業内容</label><input type="text" class="wk-name" placeholder="例：現場事務所設置・看板設置・足場設置工"></div>
       <div class="fg w70"><label>数量</label><input type="text" class="wk-qty"></div>
@@ -407,6 +447,106 @@ function calcS(el){
   const sc=row.querySelector('.hz-score');
   sc.textContent=t>0?`${t}(${r})`:'-';
   sc.className='score hz-score'+(r?' rank-'+r:'');
+}
+
+// ============ Work Master Selection ============
+function onWorkMasterSelect(sel){
+  const idx=parseInt(sel.value);
+  if(isNaN(idx))return;
+  const wi=masterData.workItems[idx];
+  if(!wi)return;
+
+  const wb=sel.closest('.work-block');
+  wb.querySelector('.wk-name').value=wi.name;
+
+  // Clear existing hazards and add from master
+  const hzList=wb.querySelector('.hz-list');
+  hzList.innerHTML='';
+  const addBtn=wb.querySelector('.btn-add-sm');
+
+  if(wi.hazards&&wi.hazards.length>0){
+    wi.hazards.forEach(h=>{
+      addHazard(addBtn);
+      const hrs=wb.querySelectorAll('.hazard-row');
+      const hr=hrs[hrs.length-1];
+      hr.querySelector('.hz-hazard').value=h.hazard||'';
+      hr.querySelector('.hz-sev').value=h.severity||'';
+      hr.querySelector('.hz-freq').value=h.frequency||'';
+      hr.querySelector('.hz-measure').value=h.measure||'';
+      calcS(hr.querySelector('.hz-sev'));
+    });
+  }else{
+    addHazard(addBtn);
+  }
+}
+
+// ============ Worker Master Functions ============
+function populateWorkerTable(){
+  const tb=document.getElementById('workerTbody');
+  tb.innerHTML='';
+  masterData.workers.forEach(w=>addWorkerMasterRow(w.name,w.company));
+}
+
+function addWorkerMasterRow(name='',company=''){
+  const tb=document.getElementById('workerTbody');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td style="padding:4px;border:1px solid #d1d5db"><input type="text" class="wmaster-name" value="${(name||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid #d1d5db;padding:4px;border-radius:4px;font-size:12px" placeholder="名前"></td>
+    <td style="padding:4px;border:1px solid #d1d5db"><input type="text" class="wmaster-company" value="${(company||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid #d1d5db;padding:4px;border-radius:4px;font-size:12px" placeholder="所属会社"></td>
+    <td style="padding:4px;border:1px solid #d1d5db;text-align:center"><button class="btn btn-del" onclick="this.closest('tr').remove();scheduleMasterAutoSave();">×</button></td>`;
+  tb.appendChild(tr);
+  if(arguments.length===0)scheduleMasterAutoSave();
+}
+
+// ============ Work Item Master Functions ============
+function populateWorkItemList(){
+  const container=document.getElementById('workItemList');
+  container.innerHTML='';
+  masterData.workItems.forEach((wi,idx)=>addWorkItemMasterBlock(wi.name,wi.hazards));
+}
+
+function addWorkItemMasterBlock(name='',hazards=[]){
+  const container=document.getElementById('workItemList');
+  const block=document.createElement('div');
+  block.className='work-block';
+  block.style.marginBottom='10px';
+
+  if(hazards.length===0)hazards=[{}];
+
+  block.innerHTML=`
+    <div class="work-header">
+      <div class="fg f2"><label>作業名</label><input type="text" class="witem-name" value="${(name||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid #d1d5db;padding:4px;border-radius:4px;font-size:12px" placeholder="例: 掘削工"></div>
+      <button class="btn btn-del" onclick="this.closest('.work-block').remove();scheduleMasterAutoSave();">作業を削除</button>
+    </div>
+    <div class="witem-hz-list"></div>
+    <button class="btn btn-add-sm" style="margin-top:4px" onclick="addWorkItemHazardRow(this.previousElementSibling)">＋ 危険要因を追加</button>`;
+  container.appendChild(block);
+
+  const hzList=block.querySelector('.witem-hz-list');
+  hazards.forEach(h=>addWorkItemHazardRow(hzList,h.hazard,h.severity,h.frequency,h.measure));
+}
+
+function addWorkItemHazardRow(list,hazard='',sev='',freq='',measure=''){
+  // If list is a button (called from onclick), get the previous sibling
+  if(list.tagName==='BUTTON')list=list.previousElementSibling;
+
+  const row=document.createElement('div');
+  row.className='hazard-row';
+  row.style.marginTop='4px';
+
+  const sevOpts=['','1','5','10','20'].map(v=>`<option value="${v}"${v===sev?' selected':''}>${v||'--'}</option>`).join('');
+  const freqOpts=['','1','5','10','20'].map(v=>`<option value="${v}"${v===freq?' selected':''}>${v||'--'}</option>`).join('');
+
+  row.innerHTML=`
+    <div class="form-row" style="gap:4px;margin:0">
+      <div class="fg f2"><select class="witem-hz-hazard" style="width:100%;padding:3px;font-size:11px">${opts(M["危険要因"],hazard)}</select></div>
+      <div class="fg w70"><select class="witem-hz-sev" style="width:100%;padding:3px;font-size:11px">${sevOpts}</select></div>
+      <div class="fg w70"><select class="witem-hz-freq" style="width:100%;padding:3px;font-size:11px">${freqOpts}</select></div>
+      <div class="fg f2"><select class="witem-hz-measure" style="width:100%;padding:3px;font-size:11px">${opts(M["安全対策"],measure)}</select></div>
+      <button class="btn btn-del" onclick="this.closest('.hazard-row').remove();scheduleMasterAutoSave();">×</button>
+    </div>`;
+  list.appendChild(row);
+  if(arguments.length<=1)scheduleMasterAutoSave();
 }
 
 // ============ 安全目標の自動生成 ============
@@ -473,11 +613,23 @@ function renderSigs(){
   // 既存データを保持しつつ新しいカードを生成
   const oldData={...sigData};
   sigData={};
+
+  // Build worker options
+  let workerOpts='<option value="">-- 選択 --</option>';
+  masterData.workers.forEach(w=>{
+    workerOpts+=`<option value="${w.name}">${w.name}</option>`;
+  });
+
   for(let i=1;i<=n;i++){
     sigData[i]=oldData[i]||{name:'',health:'良好',png:null};
     const d=sigData[i];
     const card=document.createElement('div');card.className='sig-card';card.id='card_'+i;
     card.innerHTML=`
+      <div class="sc-name">
+        <select id="wsel_${i}" onclick="event.stopPropagation()" onchange="sigData[${i}].name=this.value" style="width:100%;font-size:10px;border:none;background:transparent;text-align:center">
+          ${workerOpts}
+        </select>
+      </div>
       <div class="sc-preview" id="prev_${i}">
         ${d.png?`<img src="${d.png}">`:'<span class="sc-placeholder">✍</span>'}
       </div>
@@ -489,6 +641,9 @@ function renderSigs(){
           <option value="不良"${d.health==='不良'?' selected':''}>不良</option>
         </select>
       </div>`;
+    // Set selected worker
+    const wsel=card.querySelector('#wsel_'+i);
+    if(d.name)wsel.value=d.name;
     card.addEventListener('click',()=>openModal(i));
     g.appendChild(card);
   }
@@ -581,7 +736,7 @@ async function exportExcel(){
   // === バリデーション ===
   const errors=[];
   // 基本情報
-  if(!document.getElementById('projectName').value.trim()) errors.push('工事名が未入力です');
+  if(!document.getElementById('projectName').textContent.trim()) errors.push('工事名が未入力です');
   if(!document.getElementById('creator').value||document.getElementById('creator').value==='--') errors.push('作成者が未選択です');
   if(!document.getElementById('workDate').value) errors.push('日付が未入力です');
   // 作業内容・危険要因
@@ -750,7 +905,7 @@ async function exportExcel(){
     zip.file(styPath,styXml);
 
     // === 基本情報 ===
-    setStr(3,6,document.getElementById('projectName').value);   // F3
+    setStr(3,6,document.getElementById('projectName').textContent);   // F3
     setStr(3,59,document.getElementById('creator').value);       // BG3
     const dt=document.getElementById('workDate').value;
     if(dt){
@@ -994,6 +1149,13 @@ let gapiInited=false;
 let gisInited=false;
 let tokenClient=null;
 
+// ============ Master File 連携 ============
+const MASTER_FILE_NAME='KY_master.json';
+let masterFileId=null;
+let masterData={workers:[],workItems:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{}};
+let projectList=[];
+let currentProjectFileId=null;
+
 // GAPI (Google API client) 初期化
 function initGapi(){
   return new Promise((resolve)=>{
@@ -1041,33 +1203,25 @@ async function onDriveConnected(){
   }
   const btn=document.getElementById('btnDriveLogin');
   if(btn){btn.textContent='✅ 接続済み';btn.disabled=true;btn.style.opacity='0.6';}
-  // KY_data.json を検索して読み込み
-  await findOrCreateDataFile();
-  const loaded=await loadAllFromDataFile();
-  if(loaded){
-    applyMasterOverrides();
-    mergeCustomCreators();
-    refreshCreatorSelect();
-    refreshAllHazardSelects();
-    if(allData.config){
-      if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
-      if(allData.config.creator){
-        const sel=document.getElementById('creator');
-        for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
-      }
-    }
-    // 今日のデータを復元（既存のワークブロックをリセットしてから）
-    const k=getDateKey();
-    if(k&&allData.entries[k]){
-      document.getElementById('workBlocks').innerHTML='';
-      wkId=0;
-      restoreFormData(allData.entries[k]);
-    }
-    showConfigStatus('📂 Google ドライブから読込 ('+Object.keys(allData.entries).length+'日分)');
+
+  // 1. Load master file first
+  await findOrCreateMasterFile();
+  await loadMasterData();
+
+  // 2. Apply masters to UI
+  refreshAllHazardSelects();
+  refreshCreatorSelect();
+
+  // 3. List project files and populate selector
+  await refreshProjectList();
+
+  // 4. Auto-select first project if available
+  if(projectList.length>0){
+    document.getElementById('projectSelect').value=projectList[0].fileId;
+    await switchProject(projectList[0].fileId);
   }else{
-    showConfigStatus('ℹ️ Google ドライブに接続しました（データファイルは新規作成されます）');
+    showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
   }
-  driveReady=true; // これ以降 autoSave を許可
 }
 
 // Google Drive 上で KY_data.json を検索、なければ作成
@@ -1128,9 +1282,253 @@ async function writeToDrive(content){
     return resp.ok;
   }catch(e){return false;}
 }
+
+// ============ Master File Functions (explicit fileId) ============
+async function readFromDriveById(fileId){
+  if(!fileId||!driveAccessToken)return null;
+  try{
+    const resp=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{
+      headers:{Authorization:'Bearer '+driveAccessToken}
+    });
+    if(!resp.ok)return null;
+    return await resp.text();
+  }catch(e){return null;}
+}
+
+async function writeToDriveById(fileId, content){
+  if(!fileId||!driveAccessToken)return false;
+  try{
+    const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=media',{
+      method:'PATCH',
+      headers:{
+        Authorization:'Bearer '+driveAccessToken,
+        'Content-Type':'application/json'
+      },
+      body:content
+    });
+    return resp.ok;
+  }catch(e){return false;}
+}
+
+// Master file operations
+async function findOrCreateMasterFile(){
+  try{
+    const resp=await gapi.client.drive.files.list({
+      q:"name='"+MASTER_FILE_NAME+"' and trashed=false",
+      fields:'files(id,name)',
+      spaces:'drive'
+    });
+    const files=resp.result.files||[];
+    if(files.length>0){
+      masterFileId=files[0].id;
+      return;
+    }
+    // Create initial master with current M and HAZARD_DEFAULTS
+    const initMaster={
+      workers: M["作業者"].map(name=>({name,company:''})),
+      workItems:[],
+      hazards: M["危険要因"],
+      measures: M["安全対策"],
+      hazardDefaults: HAZARD_DEFAULTS,
+      goalMap: {...GOAL_MAP}
+    };
+    const metadata={name:MASTER_FILE_NAME,mimeType:'application/json'};
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+    form.append('file',new Blob([JSON.stringify(initMaster)],{type:'application/json'}));
+    const createResp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+driveAccessToken},
+      body:form
+    });
+    const created=await createResp.json();
+    masterFileId=created.id;
+  }catch(e){
+    showConfigStatus('❌ マスタファイル作成エラー: '+e.message);
+  }
+}
+
+async function readMasterFromDrive(){
+  return await readFromDriveById(masterFileId);
+}
+
+async function writeMasterToDrive(){
+  return await writeToDriveById(masterFileId, JSON.stringify(masterData, null, 2));
+}
+
+async function loadMasterData(){
+  const txt=await readMasterFromDrive();
+  if(!txt)return;
+  try{
+    masterData=JSON.parse(txt);
+    if(masterData.hazards&&masterData.hazards.length>0)M["危険要因"]=[...masterData.hazards];
+    if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
+    if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
+    if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
+    if(!masterData.workers)masterData.workers=[];
+    if(!masterData.workItems)masterData.workItems=[];
+  }catch(e){
+    showConfigStatus('❌ マスタデータ解析エラー: '+e.message);
+  }
+}
+
+async function saveMasterData(){
+  await writeMasterToDrive();
+}
+
 // Drive接続済みかどうか
 function isDriveConnected(){
   return !!(driveAccessToken && driveFileId);
+}
+
+// ============ Project Management Functions ============
+async function listProjectFiles(){
+  try{
+    const resp=await gapi.client.drive.files.list({
+      q:"(name contains 'KY_' or name='KY_data.json') and mimeType='application/json' and trashed=false",
+      fields:'files(id,name)',
+      spaces:'drive',
+      pageSize:100
+    });
+    const files=resp.result.files||[];
+    const result=[];
+    files.forEach(f=>{
+      if(f.name===MASTER_FILE_NAME)return;
+      let projName=f.name;
+      // 旧形式 KY_data.json は「（旧データ）」として表示
+      if(projName==='KY_data.json'){projName='（旧データ）';result.push({name:projName,fileId:f.id});return;}
+      if(projName.startsWith('KY_'))projName=projName.substring(3);
+      if(projName.endsWith('.json'))projName=projName.substring(0,projName.length-5);
+      result.push({name:projName,fileId:f.id});
+    });
+    return result;
+  }catch(e){return[];}
+}
+
+async function refreshProjectList(){
+  projectList=await listProjectFiles();
+  const sel=document.getElementById('projectSelect');
+  sel.innerHTML='<option value="">-- 工事を選択 --</option>';
+  projectList.forEach(p=>{
+    sel.innerHTML+=`<option value="${p.fileId}">${p.name}</option>`;
+  });
+  if(currentProjectFileId){sel.value=currentProjectFileId;}
+}
+
+async function onProjectSelect(){
+  const sel=document.getElementById('projectSelect');
+  const fileId=sel.value;
+  if(!fileId)return;
+  await switchProject(fileId);
+}
+
+async function switchProject(fileId){
+  if(driveReady&&currentProjectFileId){
+    autoSave();
+    await saveAllToDataFile(true);
+  }
+  currentProjectFileId=fileId;
+  driveFileId=fileId;
+  const loaded=await loadAllFromDataFile();
+  if(loaded){
+    if(allData.config){
+      document.getElementById('projectName').textContent=allData.config.projectName||'';
+      if(allData.config.creator){
+        const sel=document.getElementById('creator');
+        sel.value=allData.config.creator;
+      }
+    }
+    const k=getDateKey();
+    if(k&&allData.entries[k]){
+      document.getElementById('workBlocks').innerHTML='';
+      wkId=0;
+      restoreFormData(allData.entries[k]);
+    }else{
+      document.getElementById('workBlocks').innerHTML='';
+      wkId=0;
+      addWorkBlock();
+      document.querySelectorAll('[data-i]').forEach(c=>c.checked=false);
+      document.getElementById('inspNote').value='';
+      document.getElementById('notice').value='';
+      document.getElementById('safetyGoal').value='足元よし!！';
+      sigData={};
+      renderSigs();
+    }
+  }
+  showConfigStatus('📂 工事「'+(allData.config?.projectName||'')+'」を読込みました');
+  driveReady=true;
+}
+
+async function createNewProject(){
+  if(!driveAccessToken){
+    alert('先にGoogleドライブにログインしてください');
+    return;
+  }
+  const name=prompt('新規工事名を入力してください');
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+
+  if(driveReady&&currentProjectFileId){
+    autoSave();
+    await saveAllToDataFile(true);
+  }
+
+  const fileName='KY_'+trimmed+'.json';
+  const metadata={name:fileName,mimeType:'application/json'};
+  const initData={config:{projectName:trimmed,creator:''},entries:{}};
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+  form.append('file',new Blob([JSON.stringify(initData)],{type:'application/json'}));
+  const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+driveAccessToken},
+    body:form
+  });
+  const created=await resp.json();
+
+  allData=initData;
+  await refreshProjectList();
+  document.getElementById('projectSelect').value=created.id;
+  await switchProject(created.id);
+
+  document.getElementById('workBlocks').innerHTML='';
+  wkId=0;
+  addWorkBlock();
+  document.querySelectorAll('[data-i]').forEach(c=>c.checked=false);
+  document.getElementById('inspNote').value='';
+  document.getElementById('notice').value='';
+  document.getElementById('safetyGoal').value='足元よし!！';
+  sigData={};
+  renderSigs();
+
+  showConfigStatus('🆕 新規工事「'+trimmed+'」を作成しました');
+}
+
+async function deleteCurrentProject(){
+  if(!currentProjectFileId){
+    alert('削除する工事が選択されていません');
+    return;
+  }
+  const name=allData.config?.projectName||'';
+  if(!confirm('工事「'+name+'」を削除しますか？\nこの操作は取り消せません。'))return;
+  if(!confirm('本当に削除してよろしいですか？（最終確認）'))return;
+
+  await gapi.client.drive.files.update({fileId:currentProjectFileId,resource:{trashed:true}});
+
+  currentProjectFileId=null;
+  driveFileId=null;
+  allData={config:{},entries:{}};
+
+  await refreshProjectList();
+  document.getElementById('projectName').textContent='';
+  document.getElementById('workBlocks').innerHTML='';
+  wkId=0;
+  addWorkBlock();
+  sigData={};
+  renderSigs();
+  driveReady=false;
+
+  showConfigStatus('🗑 工事「'+name+'」を削除しました');
 }
 
 // 自動保存（KY_data.json のみを更新）
@@ -1142,7 +1540,7 @@ function autoSave(){
     const data=collectFormData();
     allData.config={
       ...(allData.config||{}),
-      projectName:document.getElementById('projectName').value,
+      projectName:document.getElementById('projectName').textContent,
       creator:document.getElementById('creator').value
     };
     allData.entries[key]=data;
@@ -1168,7 +1566,7 @@ async function saveAllToDataFile(silent){
         allData.entries[key]=collectFormData();
         allData.config={
           ...allData.config,
-          projectName:document.getElementById('projectName').value,
+          projectName:document.getElementById('projectName').textContent,
           creator:document.getElementById('creator').value
         };
       }
@@ -1246,7 +1644,7 @@ function loadDataFile(ev){
           config:all.config||{},
           entries:all.entries||{}
         };
-        if(allData.config.projectName)document.getElementById('projectName').value=allData.config.projectName;
+        if(allData.config.projectName)document.getElementById('projectName').textContent=allData.config.projectName;
         if(allData.config.creator){
           const sel=document.getElementById('creator');
           for(let o of sel.options){if(o.value===allData.config.creator){sel.value=allData.config.creator;break;}}
@@ -1280,7 +1678,6 @@ function loadDataFile(ev){
 // フォームクリア（画面の入力欄だけクリア。履歴は消さない）
 function clearForm(){
   if(!confirm('現在の画面の入力内容のみクリアしますか？\n（保存済みの履歴データは削除されません）'))return;
-  document.getElementById('projectName').value='';
   document.getElementById('creator').selectedIndex=0;
   document.getElementById('workBlocks').innerHTML='';
   wkId=0;addWorkBlock();
@@ -1326,7 +1723,7 @@ async function newProject(){
   refreshAllHazardSelects();
 
   // 4) フォームを完全クリア
-  document.getElementById('projectName').value='';
+  document.getElementById('projectName').textContent='';
   refreshCreatorSelect();
   document.getElementById('creator').selectedIndex=0;
   document.getElementById('workBlocks').innerHTML='';
@@ -1359,7 +1756,6 @@ function onDateChange(){
       restoreFormData(data);
     }else{
       // データなし → 設定(工事名・作成者)は保持、他はリセット
-      const pn=document.getElementById('projectName').value;
       const cr=document.getElementById('creator').value;
       document.getElementById('workBlocks').innerHTML='';
       wkId=0;addWorkBlock();
@@ -1368,7 +1764,6 @@ function onDateChange(){
       document.getElementById('notice').value='';
       document.getElementById('safetyGoal').value='足元よし!！';
       sigData={};renderSigs();
-      document.getElementById('projectName').value=pn;
       const sel=document.getElementById('creator');
       for(let o of sel.options){if(o.value===cr){sel.value=cr;break;}}
     }
@@ -1439,17 +1834,23 @@ function restoreFormData(data){
 // ============ マスタデータ編集 ============
 let masterEditorListenersAttached=false;
 function openMasterEditor(){
+  populateWorkerTable();
+  populateWorkItemList();
   populateHazardTable();
   populateMeasureTable();
-  showMasterTab('hazard');
+  showMasterTab('worker');
   document.getElementById('masterModal').classList.add('active');
   // 初回のみ委譲イベントを付与（input/change を受けて自動保存）
   if(!masterEditorListenersAttached){
     const hTb=document.getElementById('hazardTbody');
     const mTb=document.getElementById('measureTbody');
+    const wTb=document.getElementById('workerTbody');
+    const wiList=document.getElementById('workItemList');
     ['input','change'].forEach(ev=>{
       hTb.addEventListener(ev,scheduleMasterAutoSave);
       mTb.addEventListener(ev,scheduleMasterAutoSave);
+      wTb.addEventListener(ev,scheduleMasterAutoSave);
+      wiList.addEventListener(ev,scheduleMasterAutoSave);
     });
     masterEditorListenersAttached=true;
   }
@@ -1460,10 +1861,10 @@ function closeMasterEditor(){
   document.getElementById('masterModal').classList.remove('active');
 }
 function showMasterTab(tab){
-  document.getElementById('mpane_hazard').style.display=(tab==='hazard')?'block':'none';
-  document.getElementById('mpane_measure').style.display=(tab==='measure')?'block':'none';
-  document.getElementById('mtab_hazard').style.background=(tab==='hazard')?'#1a56db':'#6b7280';
-  document.getElementById('mtab_measure').style.background=(tab==='measure')?'#1a56db':'#6b7280';
+  ['worker','workitem','hazard','measure'].forEach(t=>{
+    document.getElementById('mpane_'+t).style.display=(t===tab)?'block':'none';
+    document.getElementById('mtab_'+t).style.background=(t===tab)?'#1a56db':'#6b7280';
+  });
 }
 
 function buildMeasureOptionsHtml(selVal){
@@ -1583,23 +1984,54 @@ function applyMasterEditorChanges(silent){
     return false;
   }
 
-  // 3) グローバル置換
+  // 3) Collect workers
+  const newWorkers=[];
+  document.querySelectorAll('#workerTbody tr').forEach(tr=>{
+    const name=tr.querySelector('.wmaster-name').value.trim();
+    const company=tr.querySelector('.wmaster-company').value.trim();
+    if(name)newWorkers.push({name,company});
+  });
+  masterData.workers=newWorkers;
+
+  // 4) Collect work items
+  const newWorkItems=[];
+  document.querySelectorAll('#workItemList .work-block').forEach(block=>{
+    const name=block.querySelector('.witem-name').value.trim();
+    if(!name)return;
+    const hazards=[];
+    block.querySelectorAll('.hazard-row').forEach(row=>{
+      const h=row.querySelector('.witem-hz-hazard').value;
+      const s=row.querySelector('.witem-hz-sev').value;
+      const f=row.querySelector('.witem-hz-freq').value;
+      const m=row.querySelector('.witem-hz-measure').value;
+      if(h)hazards.push({hazard:h,severity:s,frequency:f,measure:m});
+    });
+    newWorkItems.push({name,hazards});
+  });
+  masterData.workItems=newWorkItems;
+
+  // 5) グローバル置換
   M["危険要因"]=newHazards;
   M["安全対策"]=newMeasures;
   HAZARD_DEFAULTS=newHazardDefaults;
   GOAL_MAP=newGoalMap;
 
-  // 4) allData.config に永続化
-  allData.config=allData.config||{};
-  allData.config.hazards=newHazards;
-  allData.config.measures=newMeasures;
-  allData.config.hazardDefaults=newHazardDefaults;
-  allData.config.goalMap=newGoalMap;
+  // 6) masterDataに追加
+  masterData.hazards=newHazards;
+  masterData.measures=newMeasures;
+  masterData.hazardDefaults=newHazardDefaults;
+  masterData.goalMap=newGoalMap;
 
-  // 5) 画面上の既存selectをリビルド
+  // 7) Save master to Drive
+  if(isDriveConnected()&&masterFileId){
+    writeMasterToDrive();
+  }
+
+  // 8) 画面上の既存selectをリビルド
   refreshAllHazardSelects();
+  refreshCreatorSelect();
 
-  // 6) 編集モーダル内の安全対策プルダウン（危険要因行側）も再構築
+  // 9) 編集モーダル内の安全対策プルダウン（危険要因行側）も再構築
   //    （安全対策名を追加/変更したとき、危険要因行のデフォルト対策プルダウンに反映するため）
   document.querySelectorAll('#hazardTbody tr').forEach(tr=>{
     const sel=tr.querySelector('.hmaster-measure');
@@ -1609,7 +2041,7 @@ function applyMasterEditorChanges(silent){
     }
   });
 
-  // 7) 自動保存
+  // 10) 自動保存
   autoSave();
   return true;
 }
@@ -1718,47 +2150,12 @@ function doCopyPrevDay(prevData,srcKey){
 function refreshCreatorSelect(){
   const sel=document.getElementById('creator');
   const cur=sel.value;
-  sel.innerHTML=opts(M["作業者"],cur);
-}
-
-function addCreator(){
-  const name=prompt('追加する作成者名を入力してください');
-  if(!name)return;
-  const trimmed=name.trim();
-  if(!trimmed)return;
-  if(M["作業者"].includes(trimmed)){
-    alert('「'+trimmed+'」はすでに登録されています');
-    return;
-  }
-  M["作業者"].unshift(trimmed);
-  // allData.config.customCreators に追加して永続化
-  if(!allData.config.customCreators)allData.config.customCreators=[];
-  if(!allData.config.customCreators.includes(trimmed)){
-    allData.config.customCreators.unshift(trimmed);
-  }
-  refreshCreatorSelect();
-  document.getElementById('creator').value=trimmed;
-  // 全署名カードの作業者プルダウンも更新
-  renderSigs();
-  // 即時自動保存（KY_data.json）
-  autoSave();
-  showConfigStatus('✅ 作成者「'+trimmed+'」を追加・保存しました');
-}
-
-function removeCreator(){
-  const sel=document.getElementById('creator');
-  const name=sel.value;
-  if(!name){alert('削除する作成者を選択してください');return;}
-  if(!confirm('「'+name+'」を作成者リストから削除しますか？'))return;
-  M["作業者"]=M["作業者"].filter(v=>v!==name);
-  if(allData.config.customCreators){
-    allData.config.customCreators=allData.config.customCreators.filter(v=>v!==name);
-  }
-  refreshCreatorSelect();
-  renderSigs();
-  // 即時自動保存
-  autoSave();
-  showConfigStatus('🗑 作成者「'+name+'」を削除・保存しました');
+  let html='<option value="">--</option>';
+  masterData.workers.forEach(w=>{
+    const display=w.company?w.name+'（'+w.company+'）':w.name;
+    html+=`<option value="${w.name}"${w.name===cur?' selected':''}>${display}</option>`;
+  });
+  sel.innerHTML=html;
 }
 
 function mergeCustomCreators(){
@@ -1815,10 +2212,8 @@ window.addEventListener('DOMContentLoaded',async()=>{
     initGis();
   }catch(e){console.warn('GIS init failed',e);}
 
-  // マスタ上書きを先に適用してから、selects生成・ブロック生成
-  applyMasterOverrides();
-  mergeCustomCreators();
-  document.getElementById('creator').innerHTML=opts(M["作業者"],"塗木　一鑑");
+  // 初期表示（Drive接続前はマスタから選択肢を構築できないので最低限の表示）
+  refreshCreatorSelect();
   addWorkBlock();
   renderSigs();
 
@@ -1829,7 +2224,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
   let saveTm=null;
   const scheduleSave=()=>{clearTimeout(saveTm);saveTm=setTimeout(autoSave,2000);};
   document.querySelector('.container').addEventListener('change',scheduleSave);
-  document.getElementById('projectName').addEventListener('input',scheduleSave);
   document.getElementById('creator').addEventListener('change',()=>{autoSave();});
 });
 </script>
