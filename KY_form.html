@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KY活動表 入力フォーム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Google Identity Services (OAuth2) + Google API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -118,11 +119,6 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
   </div>
 </div>
 
-<!-- 上部アクションバー -->
-<div class="action-bar" style="display:flex;justify-content:flex-end;margin-bottom:10px">
-  <button class="cbtn cbtn-data-save" onclick="saveAllToDataFile(false)">💾 保存</button>
-</div>
-
 <!-- 基本情報 -->
 <div class="section">
   <div class="section-title">基本情報</div>
@@ -151,6 +147,9 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
   <div class="config-bar">
     <button class="cbtn cbtn-load" id="btnDriveLogin" onclick="handleDriveLogin()">🔐 ログイン</button>
     <button class="cbtn" style="background:#8b5cf6;color:#fff" onclick="openMasterEditor()">⚙ マスタ編集</button>
+    <button class="cbtn" style="background:#0891b2;color:#fff" onclick="downloadMasterExcel()">📥 マスタDL</button>
+    <button class="cbtn" style="background:#059669;color:#fff" onclick="document.getElementById('masterUploadInput').click()">📤 マスタ取込</button>
+    <input type="file" id="masterUploadInput" accept=".xlsx,.xls" style="display:none" onchange="uploadMasterExcel(this)">
     <button class="cbtn cbtn-data-load" onclick="clearForm()">🗑 画面クリア</button>
   </div>
   <div class="config-status" id="configStatus"></div>
@@ -231,9 +230,9 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
         <button class="btn btn-add-sm" style="margin-top:8px" onclick="addWorkerMasterRow()">＋ 従事者を追加</button>
       </div>
       <div id="mpane_workitem" style="display:none">
-        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">よく使う作業と紐づく危険要因を登録します。作業ブロックで選択すると危険要因が自動セットされます。</p>
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">工種ごとに作業と紐づく危険要因を登録します。作業ブロックで工種→作業を選ぶと危険要因が自動セットされます。</p>
         <div id="workItemList"></div>
-        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addWorkItemMasterBlock()">＋ 作業を追加</button>
+        <button class="btn btn-add-sm" style="margin-top:8px;background:#1a56db" onclick="addCategoryMasterBlock()">＋ 工種を追加</button>
       </div>
       <div id="mpane_hazard">
         <p style="font-size:11px;color:#6b7280;margin-bottom:8px">危険要因名・重大性・頻度・デフォルト安全対策を編集できます。新規追加・削除も可能です。</p>
@@ -293,10 +292,6 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 <button class="submit-btn" id="submitBtn" onclick="exportExcel()">📥 Excel出力してダウンロード</button>
 <div class="status-msg" id="statusMsg"></div>
 
-<!-- 下部アクションバー -->
-<div class="action-bar" style="display:flex;justify-content:flex-end;margin-top:14px">
-  <button class="cbtn cbtn-data-save" onclick="saveAllToDataFile(false)">💾 保存</button>
-</div>
 </div>
 
 <script>
@@ -384,16 +379,17 @@ function addWorkBlock(){
   wkId++;
   const d=document.createElement('div');d.className='work-block';d.id='wb_'+wkId;
 
-  // Build work item options
-  let wiOpts='<option value="">-- 作業マスタから選択 --</option>';
-  masterData.workItems.forEach((wi,idx)=>{
-    wiOpts+=`<option value="${idx}">${wi.name}</option>`;
+  // Build category options
+  let catOpts='<option value="">-- 工種を選択 --</option>';
+  (masterData.workCategories||[]).forEach((cat,idx)=>{
+    catOpts+=`<option value="${idx}">${cat.category}</option>`;
   });
 
   d.innerHTML=`
     <div class="work-header"><span class="work-label">作業内容 ${wkId}</span><button class="btn btn-del" onclick="this.closest('.work-block').remove()">削除</button></div>
     <div class="form-row" style="margin-bottom:4px">
-      <div class="fg f2"><label>作業マスタから選択</label><select class="wk-master" onchange="onWorkMasterSelect(this)" style="background:#fffbeb;border-color:#f59e0b">${wiOpts}</select></div>
+      <div class="fg f1"><label>工種</label><select class="wk-cat" onchange="onCategorySelect(this)" style="background:#fffbeb;border-color:#f59e0b">${catOpts}</select></div>
+      <div class="fg f1"><label>作業</label><select class="wk-master" onchange="onWorkMasterSelect(this)" style="background:#fffbeb;border-color:#f59e0b"><option value="">-- 工種を先に選択 --</option></select></div>
     </div>
     <div class="form-row">
       <div class="fg f3"><label>作業内容</label><input type="text" class="wk-name" placeholder="例：現場事務所設置・看板設置・足場設置工"></div>
@@ -404,6 +400,23 @@ function addWorkBlock(){
     <button class="btn btn-add-sm" style="margin-top:6px" onclick="addHazard(this)">＋ 危険要因を追加</button>`;
   document.getElementById('workBlocks').appendChild(d);
   addHazard(d.querySelector('.btn-add-sm'));
+}
+
+function onCategorySelect(sel){
+  const wb=sel.closest('.work-block');
+  const itemSel=wb.querySelector('.wk-master');
+  const catIdx=parseInt(sel.value);
+  if(isNaN(catIdx)){
+    itemSel.innerHTML='<option value="">-- 工種を先に選択 --</option>';
+    return;
+  }
+  const cat=(masterData.workCategories||[])[catIdx];
+  if(!cat){itemSel.innerHTML='<option value="">--</option>';return;}
+  let html='<option value="">-- 作業を選択 --</option>';
+  (cat.items||[]).forEach((wi,idx)=>{
+    html+=`<option value="${catIdx}_${idx}">${wi.name}</option>`;
+  });
+  itemSel.innerHTML=html;
 }
 
 function addHazard(btn){
@@ -451,9 +464,14 @@ function calcS(el){
 
 // ============ Work Master Selection ============
 function onWorkMasterSelect(sel){
-  const idx=parseInt(sel.value);
-  if(isNaN(idx))return;
-  const wi=masterData.workItems[idx];
+  const val=sel.value;
+  if(!val)return;
+  const parts=val.split('_');
+  const catIdx=parseInt(parts[0]);
+  const itemIdx=parseInt(parts[1]);
+  const cat=(masterData.workCategories||[])[catIdx];
+  if(!cat)return;
+  const wi=(cat.items||[])[itemIdx];
   if(!wi)return;
 
   const wb=sel.closest('.work-block');
@@ -498,45 +516,57 @@ function addWorkerMasterRow(name='',company=''){
   if(arguments.length===0)scheduleMasterAutoSave();
 }
 
-// ============ Work Item Master Functions ============
+// ============ Work Item Master Functions (工種→作業の2階層) ============
 function populateWorkItemList(){
   const container=document.getElementById('workItemList');
   container.innerHTML='';
-  masterData.workItems.forEach((wi,idx)=>addWorkItemMasterBlock(wi.name,wi.hazards));
+  (masterData.workCategories||[]).forEach(cat=>addCategoryMasterBlock(cat.category,cat.items||[]));
 }
 
-function addWorkItemMasterBlock(name='',hazards=[]){
+function addCategoryMasterBlock(category='',items=[]){
   const container=document.getElementById('workItemList');
+  const catDiv=document.createElement('div');
+  catDiv.className='wcat-block';
+  catDiv.style.cssText='border:2px solid #1a56db;border-radius:10px;padding:10px;margin-bottom:12px;background:#f8fafc';
+  catDiv.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-weight:700;color:#1a56db;font-size:13px">工種:</span>
+      <input type="text" class="wcat-name" value="${(category||'').replace(/"/g,'&quot;')}" style="flex:1;border:2px solid #1a56db;padding:5px 8px;border-radius:5px;font-size:13px;font-weight:600" placeholder="例: 土工">
+      <button class="btn btn-del" onclick="this.closest('.wcat-block').remove();scheduleMasterAutoSave();">工種を削除</button>
+    </div>
+    <div class="wcat-items"></div>
+    <button class="btn btn-add-sm" style="margin-top:6px;background:#1a56db" onclick="addWorkItemInCategory(this.previousElementSibling)">＋ 作業を追加</button>`;
+  container.appendChild(catDiv);
+  const itemsDiv=catDiv.querySelector('.wcat-items');
+  items.forEach(wi=>addWorkItemInCategory(itemsDiv,wi.name,wi.hazards||[]));
+  if(items.length===0)addWorkItemInCategory(itemsDiv);
+}
+
+function addWorkItemInCategory(container,name='',hazards=[]){
+  if(container.tagName==='BUTTON')container=container.previousElementSibling;
   const block=document.createElement('div');
   block.className='work-block';
-  block.style.marginBottom='10px';
-
+  block.style.cssText='margin-bottom:8px;padding:8px;background:#fff';
   if(hazards.length===0)hazards=[{}];
-
   block.innerHTML=`
-    <div class="work-header">
+    <div class="work-header" style="margin-bottom:4px">
       <div class="fg f2"><label>作業名</label><input type="text" class="witem-name" value="${(name||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid #d1d5db;padding:4px;border-radius:4px;font-size:12px" placeholder="例: 掘削工"></div>
       <button class="btn btn-del" onclick="this.closest('.work-block').remove();scheduleMasterAutoSave();">作業を削除</button>
     </div>
     <div class="witem-hz-list"></div>
     <button class="btn btn-add-sm" style="margin-top:4px" onclick="addWorkItemHazardRow(this.previousElementSibling)">＋ 危険要因を追加</button>`;
   container.appendChild(block);
-
   const hzList=block.querySelector('.witem-hz-list');
   hazards.forEach(h=>addWorkItemHazardRow(hzList,h.hazard,h.severity,h.frequency,h.measure));
 }
 
 function addWorkItemHazardRow(list,hazard='',sev='',freq='',measure=''){
-  // If list is a button (called from onclick), get the previous sibling
   if(list.tagName==='BUTTON')list=list.previousElementSibling;
-
   const row=document.createElement('div');
   row.className='hazard-row';
   row.style.marginTop='4px';
-
   const sevOpts=['','1','5','10','20'].map(v=>`<option value="${v}"${v===sev?' selected':''}>${v||'--'}</option>`).join('');
   const freqOpts=['','1','5','10','20'].map(v=>`<option value="${v}"${v===freq?' selected':''}>${v||'--'}</option>`).join('');
-
   row.innerHTML=`
     <div class="form-row" style="gap:4px;margin:0">
       <div class="fg f2"><select class="witem-hz-hazard" style="width:100%;padding:3px;font-size:11px">${opts(M["危険要因"],hazard)}</select></div>
@@ -1152,7 +1182,7 @@ let tokenClient=null;
 // ============ Master File 連携 ============
 const MASTER_FILE_NAME='KY_master.json';
 let masterFileId=null;
-let masterData={workers:[],workItems:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{}};
+let masterData={workers:[],workCategories:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{}};
 let projectList=[];
 let currentProjectFileId=null;
 
@@ -1326,7 +1356,7 @@ async function findOrCreateMasterFile(){
     // Create initial master with current M and HAZARD_DEFAULTS
     const initMaster={
       workers: M["作業者"].map(name=>({name,company:''})),
-      workItems:[],
+      workCategories:[],
       hazards: M["危険要因"],
       measures: M["安全対策"],
       hazardDefaults: HAZARD_DEFAULTS,
@@ -1366,7 +1396,12 @@ async function loadMasterData(){
     if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
     if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
     if(!masterData.workers)masterData.workers=[];
-    if(!masterData.workItems)masterData.workItems=[];
+    if(!masterData.workCategories)masterData.workCategories=[];
+    // 旧形式 workItems がある場合は workCategories に移行
+    if(masterData.workItems&&masterData.workItems.length>0&&(!masterData.workCategories||masterData.workCategories.length===0)){
+      masterData.workCategories=[{category:'その他',items:masterData.workItems}];
+      delete masterData.workItems;
+    }
   }catch(e){
     showConfigStatus('❌ マスタデータ解析エラー: '+e.message);
   }
@@ -1993,22 +2028,28 @@ function applyMasterEditorChanges(silent){
   });
   masterData.workers=newWorkers;
 
-  // 4) Collect work items
-  const newWorkItems=[];
-  document.querySelectorAll('#workItemList .work-block').forEach(block=>{
-    const name=block.querySelector('.witem-name').value.trim();
-    if(!name)return;
-    const hazards=[];
-    block.querySelectorAll('.hazard-row').forEach(row=>{
-      const h=row.querySelector('.witem-hz-hazard').value;
-      const s=row.querySelector('.witem-hz-sev').value;
-      const f=row.querySelector('.witem-hz-freq').value;
-      const m=row.querySelector('.witem-hz-measure').value;
-      if(h)hazards.push({hazard:h,severity:s,frequency:f,measure:m});
+  // 4) Collect work categories (工種→作業の2階層)
+  const newCategories=[];
+  document.querySelectorAll('#workItemList .wcat-block').forEach(catBlock=>{
+    const catName=catBlock.querySelector('.wcat-name').value.trim();
+    if(!catName)return;
+    const items=[];
+    catBlock.querySelectorAll('.work-block').forEach(block=>{
+      const name=block.querySelector('.witem-name').value.trim();
+      if(!name)return;
+      const hazards=[];
+      block.querySelectorAll('.hazard-row').forEach(row=>{
+        const h=row.querySelector('.witem-hz-hazard').value;
+        const s=row.querySelector('.witem-hz-sev').value;
+        const f=row.querySelector('.witem-hz-freq').value;
+        const m=row.querySelector('.witem-hz-measure').value;
+        if(h)hazards.push({hazard:h,severity:s,frequency:f,measure:m});
+      });
+      items.push({name,hazards});
     });
-    newWorkItems.push({name,hazards});
+    newCategories.push({category:catName,items});
   });
-  masterData.workItems=newWorkItems;
+  masterData.workCategories=newCategories;
 
   // 5) グローバル置換
   M["危険要因"]=newHazards;
@@ -2169,6 +2210,194 @@ function mergeCustomCreators(){
 // ============ 同期バナー更新 ============
 function updateSyncBanner(){
   // Drive版ではsyncBannerは使わない（driveStatusで代替）
+}
+
+// ============ マスタ Excel ダウンロード / アップロード ============
+function downloadMasterExcel(){
+  try{
+    const wb=XLSX.utils.book_new();
+
+    // シート1: 従事者
+    const wData=[['名前','所属会社']];
+    (masterData.workers||[]).forEach(w=>wData.push([w.name,w.company||'']));
+    const ws1=XLSX.utils.aoa_to_sheet(wData);
+    ws1['!cols']=[{wch:20},{wch:25}];
+    XLSX.utils.book_append_sheet(wb,ws1,'従事者');
+
+    // シート2: 作業マスタ（工種→作業→危険要因を展開）
+    const wiData=[['工種','作業名','危険要因','重大性','頻度','安全対策']];
+    (masterData.workCategories||[]).forEach(cat=>{
+      (cat.items||[]).forEach(wi=>{
+        if(wi.hazards&&wi.hazards.length>0){
+          wi.hazards.forEach(h=>{
+            wiData.push([cat.category,wi.name,h.hazard||'',h.severity||'',h.frequency||'',h.measure||'']);
+          });
+        }else{
+          wiData.push([cat.category,wi.name,'','','','']);
+        }
+      });
+      // 作業がない工種も1行出力
+      if(!cat.items||cat.items.length===0){
+        wiData.push([cat.category,'','','','','']);
+      }
+    });
+    const ws2=XLSX.utils.aoa_to_sheet(wiData);
+    ws2['!cols']=[{wch:15},{wch:20},{wch:25},{wch:8},{wch:8},{wch:25}];
+    XLSX.utils.book_append_sheet(wb,ws2,'作業マスタ');
+
+    // シート3: 危険要因
+    const hzData=[['危険要因名','重大性','頻度','デフォルト安全対策']];
+    (M["危険要因"]||[]).forEach(name=>{
+      const def=HAZARD_DEFAULTS[name]||{};
+      hzData.push([name,def.sev||'',def.freq||'',def.measure||'']);
+    });
+    const ws3=XLSX.utils.aoa_to_sheet(hzData);
+    ws3['!cols']=[{wch:25},{wch:8},{wch:8},{wch:25}];
+    XLSX.utils.book_append_sheet(wb,ws3,'危険要因');
+
+    // シート4: 安全対策
+    const msData=[['安全対策名','安全目標標語']];
+    (M["安全対策"]||[]).forEach(name=>{
+      msData.push([name,GOAL_MAP[name]||'']);
+    });
+    const ws4=XLSX.utils.aoa_to_sheet(msData);
+    ws4['!cols']=[{wch:25},{wch:25}];
+    XLSX.utils.book_append_sheet(wb,ws4,'安全対策');
+
+    XLSX.writeFile(wb,'KY_マスタデータ.xlsx');
+    showConfigStatus('📥 KY_マスタデータ.xlsx をダウンロードしました');
+  }catch(e){
+    showConfigStatus('❌ Excelダウンロードエラー: '+e.message);
+  }
+}
+
+function uploadMasterExcel(input){
+  const file=input.files[0];
+  if(!file)return;
+  input.value=''; // リセット
+
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+
+      let imported=0;
+
+      // シート: 従事者
+      const ws1=wb.Sheets['従事者'];
+      if(ws1){
+        const rows=XLSX.utils.sheet_to_json(ws1,{header:1});
+        const workers=[];
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i];
+          const name=String(r[0]||'').trim();
+          if(name)workers.push({name,company:String(r[1]||'').trim()});
+        }
+        if(workers.length>0){masterData.workers=workers;imported++;}
+      }
+
+      // シート: 作業マスタ（工種→作業→危険要因）
+      const ws2=wb.Sheets['作業マスタ'];
+      if(ws2){
+        const rows=XLSX.utils.sheet_to_json(ws2,{header:1});
+        const catMap=new Map(); // category -> {items: Map(name -> {hazards})}
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i];
+          const catName=String(r[0]||'').trim();
+          const itemName=String(r[1]||'').trim();
+          if(!catName)continue;
+          if(!catMap.has(catName))catMap.set(catName,new Map());
+          const itemMap=catMap.get(catName);
+          if(!itemName)continue;
+          if(!itemMap.has(itemName))itemMap.set(itemName,[]);
+          const hazard=String(r[2]||'').trim();
+          if(hazard){
+            itemMap.get(itemName).push({
+              hazard,
+              severity:String(r[3]||'').trim(),
+              frequency:String(r[4]||'').trim(),
+              measure:String(r[5]||'').trim()
+            });
+          }
+        }
+        const categories=[];
+        catMap.forEach((itemMap,catName)=>{
+          const items=[];
+          itemMap.forEach((hazards,name)=>items.push({name,hazards}));
+          categories.push({category:catName,items});
+        });
+        if(categories.length>0){masterData.workCategories=categories;imported++;}
+      }
+
+      // シート: 危険要因
+      const ws3=wb.Sheets['危険要因'];
+      if(ws3){
+        const rows=XLSX.utils.sheet_to_json(ws3,{header:1});
+        const hazards=[];
+        const hd={};
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i];
+          const name=String(r[0]||'').trim();
+          if(!name)continue;
+          hazards.push(name);
+          const sev=String(r[1]||'').trim();
+          const freq=String(r[2]||'').trim();
+          const measure=String(r[3]||'').trim();
+          if(sev||freq||measure)hd[name]={sev,freq,measure};
+        }
+        if(hazards.length>0){
+          M["危険要因"]=hazards;
+          HAZARD_DEFAULTS=hd;
+          masterData.hazards=hazards;
+          masterData.hazardDefaults=hd;
+          imported++;
+        }
+      }
+
+      // シート: 安全対策
+      const ws4=wb.Sheets['安全対策'];
+      if(ws4){
+        const rows=XLSX.utils.sheet_to_json(ws4,{header:1});
+        const measures=[];
+        const gm={};
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i];
+          const name=String(r[0]||'').trim();
+          if(!name)continue;
+          measures.push(name);
+          const goal=String(r[1]||'').trim();
+          if(goal)gm[name]=goal;
+        }
+        if(measures.length>0){
+          M["安全対策"]=measures;
+          GOAL_MAP=gm;
+          masterData.measures=measures;
+          masterData.goalMap=gm;
+          imported++;
+        }
+      }
+
+      if(imported===0){
+        showConfigStatus('⚠️ 取り込めるシートが見つかりませんでした（シート名: 従事者, 作業マスタ, 危険要因, 安全対策）');
+        return;
+      }
+
+      // UI更新
+      refreshAllHazardSelects();
+      refreshCreatorSelect();
+
+      // Drive接続済みならマスタを保存
+      if(isDriveConnected()&&masterFileId){
+        writeMasterToDrive();
+      }
+
+      showConfigStatus('📤 Excelから '+imported+' シート分のマスタデータを取り込みました');
+    }catch(e){
+      showConfigStatus('❌ Excel読込エラー: '+e.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 function showConfigStatus(msg){
