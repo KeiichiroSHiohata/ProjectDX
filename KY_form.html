@@ -988,7 +988,8 @@ function collectFormData(){
 const DRIVE_CLIENT_ID='284823490637-5i3bmm35ncug6k486gidq3obgnb8ca3s.apps.googleusercontent.com';
 const DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
 let driveAccessToken=null;
-let driveFileId=null; // KY_data.json の Google Drive 上のファイルID
+let driveFileId=null;
+let driveReady=false; // Drive読込完了までautoSaveを抑止 // KY_data.json の Google Drive 上のファイルID
 let gapiInited=false;
 let gisInited=false;
 let tokenClient=null;
@@ -1066,6 +1067,7 @@ async function onDriveConnected(){
   }else{
     showConfigStatus('ℹ️ Google ドライブに接続しました（データファイルは新規作成されます）');
   }
+  driveReady=true; // これ以降 autoSave を許可
 }
 
 // Google Drive 上で KY_data.json を検索、なければ作成
@@ -1133,6 +1135,7 @@ function isDriveConnected(){
 
 // 自動保存（KY_data.json のみを更新）
 function autoSave(){
+  if(!driveReady)return; // Drive読込完了前は何もしない
   const key=getDateKey();
   if(!key)return;
   try{
