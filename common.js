@@ -196,6 +196,9 @@ function initGis(){
     callback:(resp)=>{
       if(resp.error)return;
       driveAccessToken=resp.access_token;
+      if(gapiInited) gapi.client.setToken({access_token:driveAccessToken});
+      driveReady=true;
+      dbg('GIS callback: token received, calling onDriveConnected');
       onDriveConnected();
     }
   });
@@ -269,6 +272,13 @@ async function onDriveConnected(){
   // Save session state for sub-pages
   saveSession();
   dbg('onDriveConnected: saveSession done. entries='+Object.keys(allData.entries).length);
+
+  // Re-call onPageReady to refresh UI with loaded data
+  // (on first login, onPageReady was already called with driveReady=false)
+  if(typeof onPageReady==='function'){
+    dbg('onDriveConnected: re-calling onPageReady() to refresh UI');
+    onPageReady();
+  }
   showDebugPanel();
 }
 
