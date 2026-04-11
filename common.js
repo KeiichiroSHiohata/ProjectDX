@@ -1438,10 +1438,8 @@ function saveSession(){
     if(masterData&&masterData.workers){
       sessionStorage.setItem('masterDataCache', JSON.stringify(masterData));
     }
-    // Cache entries data for instant sub-page display
-    if(allData.entries&&Object.keys(allData.entries).length>0){
-      sessionStorage.setItem('allDataEntries', JSON.stringify(allData.entries));
-    }
+    // Cache entries data for instant sub-page display (always save, even if empty)
+    sessionStorage.setItem('allDataEntries', JSON.stringify(allData.entries||{}));
   }catch(e){}
 }
 

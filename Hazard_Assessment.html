@@ -8,7 +8,13 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
-<script src="common.js"></script>
+<script src="common.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const wd=document.getElementById('workDate');
+  if(wd&&!wd.value){const d=new Date();wd.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+});
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#f0f2f5;color:#333;padding:12px}
@@ -1013,9 +1019,6 @@ function onPageReady(){
 }
 
 window.addEventListener('DOMContentLoaded', async ()=>{
-  // Set date immediately (no API needed)
-  const wd=document.getElementById('workDate');
-  if(wd && !wd.value) wd.value=localDateStr(new Date());
   try{ await initCommon(); }catch(e){ console.error('[Hazard_Assessment] initCommon error:',e); }
 });
 </script>
