@@ -1548,3 +1548,131 @@ function navigateTo(page){
   saveSession();
   window.location.href=page;
 }
+
+// ============ Test Data Generator ============
+async function generateTestProject(){
+  if(!driveReady||!driveAccessToken){alert('先にGoogleドライブにログインしてください');return;}
+  const projectName='動作確認テスト工事';
+  dbg('generateTestProject: creating folder KY_'+projectName);
+  showConfigStatus('⏳ テストプロジェクト作成中...');
+
+  // 1) Create project folder
+  const folderMeta={name:'KY_'+projectName, mimeType:'application/vnd.google-apps.folder'};
+  const folderResp=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(folderMeta)
+  });
+  const folder=await folderResp.json();
+  const folderId=folder.id;
+  dbg('generateTestProject: folderId='+folderId);
+
+  // 2) Create config.json
+  const config={projectName:projectName,creator:'塩畑　圭一郎'};
+  await createFileInFolder(folderId,'config.json',JSON.stringify(config));
+
+  // 3) Generate 45 days of data (today - 44 days ~ today)
+  const today=new Date();
+  const workItems=['路体盛土工','法面整形工','排水構造物工','仮設工','舗装工','土工','コンクリート工','鉄筋工','型枠工','基礎工'];
+  const hazards=M["危険要因"];
+  const measures=M["安全対策"];
+  const workers=['坂本','水野　博之','福島　利紀','塗木　一鑑','濱砂　幸治','日高　英司'];
+  const materials=['生コンクリート','鉄筋 D13','鉄筋 D16','型枠用合板','砕石 RC-40','アスファルト合材','セメント','コルゲートパイプ'];
+  const weatherOpts=['晴れ','曇り','雨','晴れ時々曇り','曇り一時雨'];
+
+  // Group entries by month
+  const monthData={};
+  for(let i=44;i>=0;i--){
+    const d=new Date(today);
+    d.setDate(d.getDate()-i);
+    // Skip Sundays
+    if(d.getDay()===0) continue;
+    const dk=localDateStr(d).replace(/-/g,'');
+    const month=dk.substring(0,6);
+    if(!monthData[month]) monthData[month]={};
+
+    const numBlocks=1+Math.floor(Math.random()*3);
+    const workBlocks=[];
+    for(let b=0;b<numBlocks;b++){
+      const item=workItems[Math.floor(Math.random()*workItems.length)];
+      const haz1=hazards[Math.floor(Math.random()*hazards.length)];
+      const haz2=hazards[Math.floor(Math.random()*hazards.length)];
+      const meas1=HAZARD_DEFAULTS[haz1]?HAZARD_DEFAULTS[haz1].measure:measures[0];
+      const meas2=HAZARD_DEFAULTS[haz2]?HAZARD_DEFAULTS[haz2].measure:measures[1];
+      workBlocks.push({
+        category:'土木工事',
+        item:item,
+        hazards:[
+          {hazard:haz1,severity:HAZARD_DEFAULTS[haz1]?.sev||'10',frequency:HAZARD_DEFAULTS[haz1]?.freq||'5',measure:meas1},
+          {hazard:haz2,severity:HAZARD_DEFAULTS[haz2]?.sev||'10',frequency:HAZARD_DEFAULTS[haz2]?.freq||'5',measure:meas2}
+        ]
+      });
+    }
+
+    // KY Activity data
+    const entry={
+      workDate:localDateStr(d),
+      creator:'塩畑　圭一郎',
+      notice:'安全第一で作業する。体調管理に注意。',
+      safetyGoal:GOAL_MAP[workBlocks[0].hazards[0].measure]||'安全確認よし！',
+      workBlocks:workBlocks,
+      inspection:{'0-0':true,'0-1':true,'1-0':true,'1-1':true,'2-0':true},
+      signatures:{}
+    };
+
+    // Nippo (daily report) data
+    const numWorkers=2+Math.floor(Math.random()*4);
+    const dayWorkers=[];
+    const shuffled=[...workers].sort(()=>Math.random()-0.5);
+    for(let w=0;w<Math.min(numWorkers,shuffled.length);w++){
+      dayWorkers.push({name:shuffled[w],start:'08:00',end:'17:00',type:'作業員'});
+    }
+    const numNippoWork=1+Math.floor(Math.random()*2);
+    const nippoWork=[];
+    for(let n=0;n<numNippoWork;n++){
+      const wi=workItems[Math.floor(Math.random()*workItems.length)];
+      nippoWork.push({item:wi,spec:'一式',qty:String(10+Math.floor(Math.random()*90)),unit:'m'});
+    }
+    const numMat=Math.floor(Math.random()*3);
+    const nippoMaterials=[];
+    for(let m=0;m<numMat;m++){
+      const mi=materials[Math.floor(Math.random()*materials.length)];
+      nippoMaterials.push({name:mi,spec:'',qty:String(1+Math.floor(Math.random()*20)),unit:'t'});
+    }
+
+    entry.nippo={
+      weather:weatherOpts[Math.floor(Math.random()*weatherOpts.length)],
+      tempHigh:String(15+Math.floor(Math.random()*18)),
+      tempLow:String(5+Math.floor(Math.random()*15)),
+      work:nippoWork,
+      workers:dayWorkers,
+      materials:nippoMaterials,
+      complaints:'特になし',
+      envMeasures:'散水による粉塵対策実施',
+      safetyItems:'KY活動実施。安全帯着用確認。'
+    };
+
+    monthData[month][dk]=entry;
+  }
+
+  // 4) Save monthly files to Drive
+  const months=Object.keys(monthData).sort();
+  dbg('generateTestProject: saving '+months.length+' month files');
+  for(const month of months){
+    const json=JSON.stringify({entries:monthData[month]},null,2);
+    await createFileInFolder(folderId,month+'.json',json);
+    dbg('generateTestProject: saved '+month+'.json ('+Object.keys(monthData[month]).length+' days)');
+  }
+
+  // 5) Refresh project list and select the new project
+  await refreshProjectList();
+  const sel=document.getElementById('projectSelect');
+  if(sel){
+    sel.value=folderId;
+    await onProjectSelect();
+  }
+  saveSession();
+  showConfigStatus('✅ テストプロジェクト作成完了！ ('+Object.values(monthData).reduce((s,m)=>s+Object.keys(m).length,0)+'日分)');
+  if(typeof onPageReady==='function') onPageReady();
+  dbg('generateTestProject: done');
+}
