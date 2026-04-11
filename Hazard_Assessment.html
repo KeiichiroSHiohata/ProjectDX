@@ -531,20 +531,18 @@ async function exportExcel(){
   if(wblocks.length===0) errors.push('作業内容が1つもありません');
   wblocks.forEach((wb,idx)=>{
     const bn=idx+1;
-    const nm=wb.querySelector('.wk-name').value.trim();
-    const qt=wb.querySelector('.wk-qty').value.trim();
-    const un=wb.querySelector('.wk-unit').value;
-    if(!nm) errors.push(`作業内容${bn}：作業名が未入力です`);
-    if(!qt) errors.push(`作業内容${bn}：数量が未入力です`);
-    if(!un||un==='--') errors.push(`作業内容${bn}：単位が未選択です`);
+    const cat=wb.querySelector('.wk-cat')?.value||'';
+    const item=wb.querySelector('.wk-item')?.value||'';
+    if(!cat||cat==='--') errors.push(`作業内容${bn}：工種が未選択です`);
+    if(!item||item==='--') errors.push(`作業内容${bn}：作業項目が未選択です`);
     const hzRows=wb.querySelectorAll('.hazard-row');
     let hzSelected=0;
     hzRows.forEach((hr,hi)=>{
       const hn=hi+1;
-      const hz=hr.querySelector('.hz-hazard').value;
-      const sv=hr.querySelector('.hz-sev').value;
-      const fr=hr.querySelector('.hz-freq').value;
-      const ms=hr.querySelector('.hz-measure').value;
+      const hz=hr.querySelector('.haz-sel')?.value||'';
+      const sv=hr.querySelector('.haz-sev')?.value||'';
+      const fr=hr.querySelector('.haz-freq')?.value||'';
+      const ms=hr.querySelector('.haz-meas')?.value||'';
       if(hz&&hz!=='--') hzSelected++;
       if(!hz||hz==='--') errors.push(`作業内容${bn} 危険要因${hn}：危険要因が未選択です`);
       if(!sv||sv==='--') errors.push(`作業内容${bn} 危険要因${hn}：重大性が未選択です`);
@@ -555,7 +553,7 @@ async function exportExcel(){
   });
   let signedCount=0;
   const sc=parseInt(document.getElementById('sigCount').value)||0;
-  for(let i=1;i<=sc&&i<=22;i++){
+  for(let i=0;i<sc&&i<22;i++){
     if(sigData[i]&&sigData[i].png) signedCount++;
   }
   if(signedCount<1) errors.push('署名が1人以上必要です');
@@ -715,53 +713,70 @@ async function exportExcel(){
       setNum(3,74,rY); setNum(3,78,mo); setNum(3,82,da); setStr(3,86,dow);
     }
 
-    // === 既存データクリア ===
-    for(const r of ROW_STARTS){
-      for(const c of [COL.A,COL.R,COL.W,COL.Z,COL.AQ,COL.AT,COL.AW,COL.AZ,COL.BC]) clearVal(r,c);
+    // === 既存データクリア (10スロット分) ===
+    for(let s=0;s<10;s++){
+      const r=ROW_STARTS.ky+s*2;
+      for(let c=COL.cat;c<=COL.rank+1;c++) clearVal(r,c);
     }
 
     // === 作業内容・危険要因 ===
     let slot=0;
     document.querySelectorAll('#workBlocks .work-block').forEach(wbEl=>{
-      const name=wbEl.querySelector('.wk-name').value;
-      const qty=wbEl.querySelector('.wk-qty').value;
-      const unit=wbEl.querySelector('.wk-unit').value;
+      const cat=wbEl.querySelector('.wk-cat')?.value||'';
+      const item=wbEl.querySelector('.wk-item')?.value||'';
       const hazards=wbEl.querySelectorAll('.hazard-row');
       let first=true;
       hazards.forEach(hr=>{
         if(slot>=10)return;
-        const r=ROW_STARTS[slot];
+        const r=ROW_STARTS.ky+slot*2;
         if(first){
-          setStr(r,COL.A,name);
-          if(qty){const qn=parseFloat(qty);if(!isNaN(qn))setNum(r,COL.R,qn);else setStr(r,COL.R,qty);}
-          setStr(r,COL.W,unit);
+          setStr(r,COL.cat,cat);
+          setStr(r,COL.item,item);
           first=false;
         }
-        setStr(r,COL.Z,hr.querySelector('.hz-hazard').value);
-        const sev=hr.querySelector('.hz-sev').value;
-        const freq=hr.querySelector('.hz-freq').value;
+        setStr(r,COL.haz,hr.querySelector('.haz-sel')?.value||'');
+        const sev=hr.querySelector('.haz-sev')?.value||'';
+        const freq=hr.querySelector('.haz-freq')?.value||'';
         const sevN=parseInt(sev)||0, freqN=parseInt(freq)||0;
-        if(sev)setNum(r,COL.AQ,sevN);
-        if(freq)setNum(r,COL.AT,freqN);
-        setStr(r,COL.BC,hr.querySelector('.hz-measure').value);
+        if(sev)setNum(r,COL.sev,sevN);
+        if(freq)setNum(r,COL.freq,freqN);
+        setStr(r,COL.meas,hr.querySelector('.haz-meas')?.value||'');
         if(sevN&&freqN){
-          const score=sevN+freqN;
-          setNum(r,COL.AW,score);
-          setStr(r,COL.AZ,score>=30?'A':score>=25?'B':score>=15?'C':'D');
+          const score=sevN*freqN;
+          setNum(r,COL.rank,score);
+          const rankLetter=score>=100?'A':score>=50?'B':score>=10?'C':'D';
+          setStr(r,COL.rank+1,rankLetter);
         }
         slot++;
       });
     });
 
     // === 測定機器点検 ===
-    for(const[key,row] of Object.entries(INSP_MAP)){
-      const ts=document.querySelector(`[data-i="ts"][data-k="${key}"]`);
-      const lv=document.querySelector(`[data-i="level"][data-k="${key}"]`);
-      if(ts&&ts.checked)setStr(row,81,'✓');else clearVal(row,81);
-      if(lv&&lv.checked)setStr(row,86,'✓');else clearVal(row,86);
-    }
-    const inspNote=document.getElementById('inspNote').value;
-    if(inspNote)setStr(19,71,inspNote);
+    const inspItems=['exterior','optical','screw','rotation'];
+    inspItems.forEach(k=>{
+      const tsCell=INSP_MAP['ts_'+k];
+      const lvCell=INSP_MAP['level_'+k];
+      const tsCb=document.querySelector(`[data-i="ts"][data-k="${k}"]`);
+      const lvCb=document.querySelector(`[data-i="level"][data-k="${k}"]`);
+      if(tsCell){
+        const rc=tsCell.match(/([A-Z]+)(\d+)/);
+        if(rc){
+          let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);
+          const row=parseInt(rc[2]);
+          if(tsCb&&tsCb.checked)setStr(row,col,'✓');else clearVal(row,col);
+        }
+      }
+      if(lvCell){
+        const rc=lvCell.match(/([A-Z]+)(\d+)/);
+        if(rc){
+          let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);
+          const row=parseInt(rc[2]);
+          if(lvCb&&lvCb.checked)setStr(row,col,'✓');else clearVal(row,col);
+        }
+      }
+    });
+    const inspNoteVal=document.getElementById('inspNote').value;
+    if(inspNoteVal){const rc=INSP_MAP.inspNote.match(/([A-Z]+)(\d+)/);if(rc){let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);setStr(parseInt(rc[2]),col,inspNoteVal);}}
 
     // === 連絡事項・安全目標 ===
     setStr(29,1,document.getElementById('notice').value||'');
@@ -770,13 +785,14 @@ async function exportExcel(){
     // === 署名：健康状態テキスト ===
     const sigCount=parseInt(document.getElementById('sigCount').value)||0;
     const sigImages=[];
-    for(let i=1;i<=sigCount&&i<=22;i++){
-      const col=SIG_COLS[i-1];
+    for(let i=0;i<sigCount&&i<22;i++){
+      const col=SIG_COLS[i];
       const sd=sigData[i];
       const png=sd?sd.png:null;
       if(png){
-        if(sd.health)setStr(48,col,sd.health);
-        sigImages.push({idx:i,col:col,b64:png.split(',')[1]});
+        let colIdx=0;for(let j=0;j<col.length;j++)colIdx=colIdx*26+(col.charCodeAt(j)-64);
+        if(sd.health)setStr(48,colIdx,sd.health);
+        sigImages.push({idx:i,col:colIdx,b64:png.split(',')[1]});
       }
     }
 
