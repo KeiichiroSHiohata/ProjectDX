@@ -847,7 +847,7 @@ function onPageReady(){
 }
 
 window.addEventListener('DOMContentLoaded', async ()=>{
-  await initCommon();
+  try{ await initCommon(); }catch(e){ console.error('[Daily_Report] initCommon error:',e); }
 });
 </script>
 </body>

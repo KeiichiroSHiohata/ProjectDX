@@ -197,17 +197,44 @@ async function onDriveConnected(){
   const btn=document.getElementById('btnDriveLogin');
   if(btn){btn.textContent='✅ 接続済み';btn.disabled=true;btn.style.opacity='0.6';}
 
-  // 1. Load master file first
-  await findOrCreateMasterFile();
-  await loadMasterData();
+  // 1. Check if we're on the home page or sub-page
+  const sel=document.getElementById('projectSelect');
+  const isHomePage=!!sel;
 
-  // 2. Apply masters to UI
+  // 2. Load master data
+  if(isHomePage){
+    // Home page: always fresh from Drive
+    await findOrCreateMasterFile();
+    await loadMasterData();
+  }else{
+    // Sub-page: try cached master from session first
+    const cachedMaster=sessionStorage.getItem('masterDataCache');
+    if(cachedMaster){
+      try{
+        masterData=JSON.parse(cachedMaster);
+        if(masterData.hazards&&masterData.hazards.length>0)M["危険要因"]=[...masterData.hazards];
+        if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
+        if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
+        if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
+        if(!masterData.workers)masterData.workers=[];
+        if(!masterData.workCategories)masterData.workCategories=[];
+        console.log('[onDriveConnected] SUB-PAGE: master data restored from cache');
+      }catch(e){
+        await findOrCreateMasterFile();
+        await loadMasterData();
+      }
+    }else{
+      await findOrCreateMasterFile();
+      await loadMasterData();
+    }
+  }
+
+  // 3. Apply masters to UI
   refreshAllHazardSelects();
   refreshCreatorSelect();
 
-  // 3. Check if we're on the home page (has projectSelect)
-  const sel=document.getElementById('projectSelect');
-  if(sel){
+  // 4. Load project data
+  if(isHomePage){
     // HOME PAGE: full flow — list projects and populate selector
     await refreshProjectList();
     if(projectList.length>0){
@@ -225,10 +252,11 @@ async function onDriveConnected(){
       }
     }
   }else{
-    // SUB-PAGE (Hazard_Assessment / Daily_Report): load data directly from saved IDs
+    // SUB-PAGE (Hazard_Assessment / Daily_Report): lightweight data load
     console.log('[onDriveConnected] SUB-PAGE: currentFolderId=',currentFolderId,'currentProjectFileId=',currentProjectFileId);
     if(currentFolderId){
-      await switchToFolder(currentFolderId);
+      // Use fast path: skip config search if already restored from session
+      await loadSubPageData();
     }else if(currentProjectFileId){
       await switchToLegacy(currentProjectFileId);
     }else{
@@ -301,6 +329,8 @@ async function writeToDrive(content){
 
 // Master file operations
 async function findOrCreateMasterFile(){
+  // Skip search if masterFileId already restored from session
+  if(masterFileId) return;
   try{
     const resp=await gapi.client.drive.files.list({
       q:"name='"+MASTER_FILE_NAME+"' and trashed=false",
@@ -467,6 +497,24 @@ async function switchToFolder(folderId){
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
   showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');
+}
+
+// Lightweight data load for sub-pages (config already in session)
+async function loadSubPageData(){
+  console.log('[loadSubPageData] start, config already restored from session');
+  // Apply config to UI
+  const pnEl=document.getElementById('projectName')||document.getElementById('kyProjectName')||document.getElementById('nippoProjectName');
+  if(pnEl) pnEl.textContent=allData.config.projectName||'';
+  const creatorEl=document.getElementById('creator');
+  if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
+  // Determine month
+  const mk=getMonthKey();
+  currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  console.log('[loadSubPageData] loading month=',currentMonth);
+  // Load month data (only 1 API call: findFileInFolder + readFromDriveById)
+  await loadMonthData(currentMonth);
+  console.log('[loadSubPageData] entries loaded, keys=',Object.keys(allData.entries));
+  driveReady=true;
 }
 
 async function switchToLegacy(fileId){
@@ -1360,22 +1408,18 @@ async function initCommon(){
     }catch(e){}
   }
 
-  // 2) Wait for Google API scripts to load (max 10 seconds)
-  const gapiOk=await waitForGapi(10000);
+  // 2) Wait for GAPI and GIS in PARALLEL (max 10 seconds each)
+  const [gapiOk, gisOk] = await Promise.all([
+    waitForGapi(10000),
+    waitForGis(10000)
+  ]);
   if(gapiOk){
-    try{
-      await initGapi();
-    }catch(e){console.warn('GAPI init failed',e);}
+    try{ await initGapi(); }catch(e){console.warn('GAPI init failed',e);}
   }else{
     console.warn('gapi script did not load within 10s');
   }
-
-  // 3) Wait for GIS and init
-  const gisOk=await waitForGis(10000);
   if(gisOk){
-    try{
-      initGis();
-    }catch(e){console.warn('GIS init failed',e);}
+    try{ initGis(); }catch(e){console.warn('GIS init failed',e);}
   }else{
     console.warn('GIS script did not load within 10s');
   }
@@ -1415,6 +1459,10 @@ function saveSession(){
     sessionStorage.setItem('projectList', JSON.stringify(projectList));
     if(allData.config&&Object.keys(allData.config).length>0){
       sessionStorage.setItem('allDataConfig', JSON.stringify(allData.config));
+    }
+    // Cache master data to avoid re-fetching on sub-pages
+    if(masterData&&masterData.workers){
+      sessionStorage.setItem('masterDataCache', JSON.stringify(masterData));
     }
   }catch(e){}
 }

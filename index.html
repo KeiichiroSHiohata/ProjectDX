@@ -310,8 +310,7 @@ function loadDataOverview() {
 
 // Initialize
 window.addEventListener('DOMContentLoaded', async () => {
-  await initCommon();
-  // onPageReady() is called inside initCommon() after Drive data is loaded
+  try{ await initCommon(); }catch(e){ console.error('[index] initCommon error:',e); }
 });
 </script>
 </body>

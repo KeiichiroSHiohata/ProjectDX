@@ -1013,8 +1013,7 @@ function onPageReady(){
 }
 
 window.addEventListener('DOMContentLoaded', async ()=>{
-  await initCommon();
-  // onPageReady() is called inside initCommon() after Drive data is loaded
+  try{ await initCommon(); }catch(e){ console.error('[Hazard_Assessment] initCommon error:',e); }
 });
 </script>
 </body>
