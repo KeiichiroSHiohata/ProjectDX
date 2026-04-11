@@ -253,7 +253,8 @@ function getTotalSlots(){
 function addWorkBlock(){
   if(getTotalSlots()>=10){alert('最大10スロットに達しています');return}
   const wb=document.getElementById('workBlocks');
-  const catOpts=opts(M['作業内容']||[], '');
+  const catNames=(masterData.workCategories||[]).map(c=>c.category);
+  const catOpts=opts(catNames, '');
   const html=`
   <div class="work-block" data-wk-id="${wkId}">
     <div class="work-header">
@@ -277,7 +278,10 @@ function onCategorySelect(sel){
   const itemSel=block.querySelector('.wk-item');
   if(!cat){itemSel.innerHTML='<option value="">--</option>';return}
   const items=masterData.workCategories.find(c=>c.category===cat)?.items||[];
-  itemSel.innerHTML='<option value="">--</option>'+items.map(v=>`<option value="${v}">${v}</option>`).join('');
+  itemSel.innerHTML='<option value="">--</option>'+items.map(v=>{
+    const nm=typeof v==='string'?v:(v.name||v);
+    return `<option value="${nm}">${nm}</option>`;
+  }).join('');
   autoSave();
 }
 

@@ -155,7 +155,8 @@ const CONFIG_FILE_NAME='config.json';
 // 当月分データのインメモリキャッシュ
 let allData={config:{},entries:{}};
 let currentMonth=''; // 'YYYYMM'
-let currentMonthFileId=null;
+let currentMonthHAFileId=null;  // YYYYMM_Hazard_Assessment.json
+let currentMonthDRFileId=null;  // YYYYMM_Daily_Report.json
 let dataFileSaveTm=null;
 
 // ============ Google Drive API 連携 ============
@@ -422,24 +423,42 @@ function isDriveConnected(){
 // ============ プロジェクト管理（フォルダ方式 + レガシー互換） ============
 async function listProjectFiles(){
   try{
-    const folderResp=await gapi.client.drive.files.list({
-      q:"name contains 'KY_' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-      fields:'files(id,name)',spaces:'drive',pageSize:100
+    // New method: find folders containing config.json
+    const configResp=await gapi.client.drive.files.list({
+      q:"name='"+CONFIG_FILE_NAME+"' and mimeType='application/json' and trashed=false",
+      fields:'files(id,name,parents)',spaces:'drive',pageSize:100
     });
-    const folders=folderResp.result.files||[];
+    const configFiles=configResp.result.files||[];
+    const folderIds=new Set();
+    const folderConfigMap={};
+    configFiles.forEach(cf=>{
+      if(cf.parents&&cf.parents.length>0){
+        const pid=cf.parents[0];
+        folderIds.add(pid);
+        folderConfigMap[pid]=cf.id;
+      }
+    });
+    // Get folder names
+    const result=[];
+    for(const fid of folderIds){
+      try{
+        const fResp=await gapi.client.drive.files.get({fileId:fid,fields:'id,name,trashed'});
+        if(!fResp.result.trashed){
+          let projName=fResp.result.name;
+          if(projName.startsWith('KY_'))projName=projName.substring(3);
+          result.push({name:projName, id:fid, type:'folder'});
+        }
+      }catch(e){}
+    }
+    // Also find legacy single-file projects (backward compat)
     const legacyResp=await gapi.client.drive.files.list({
       q:"(name contains 'KY_' or name='KY_data.json') and mimeType='application/json' and trashed=false",
       fields:'files(id,name)',spaces:'drive',pageSize:100
     });
     const legacyFiles=legacyResp.result.files||[];
-    const result=[];
-    folders.forEach(f=>{
-      let projName=f.name;
-      if(projName.startsWith('KY_'))projName=projName.substring(3);
-      result.push({name:projName, id:f.id, type:'folder'});
-    });
     legacyFiles.forEach(f=>{
       if(f.name===MASTER_FILE_NAME)return;
+      if(f.name===CONFIG_FILE_NAME)return;
       let projName=f.name;
       if(projName==='KY_data.json'){projName='（旧データ）';}
       else{
@@ -447,6 +466,7 @@ async function listProjectFiles(){
         if(projName.endsWith('.json'))projName=projName.substring(0,projName.length-5);
       }
       if(/^\d{6}$/.test(projName))return;
+      if(/^\d{6}_(Hazard_Assessment|Daily_Report)$/.test(projName))return;
       if(result.some(r=>r.name===projName))return;
       result.push({name:projName+'（旧形式）', id:f.id, type:'legacy'});
     });
@@ -522,7 +542,8 @@ async function switchToLegacy(fileId){
   currentProjectFileId=fileId;
   driveFileId=fileId;
   currentMonth='';
-  currentMonthFileId=null;
+  currentMonthHAFileId=null;
+  currentMonthDRFileId=null;
   const txt=await readFromDriveById(fileId);
   if(txt){
     try{
@@ -545,17 +566,52 @@ async function switchToLegacy(fileId){
 async function loadMonthData(month){
   dbg(`loadMonthData(${month}) start, folderId=${currentFolderId}`);
   allData.entries={};
-  currentMonthFileId=null;
+  currentMonthHAFileId=null;
+  currentMonthDRFileId=null;
   if(!currentFolderId||!month){dbg('loadMonthData: skip (no folderId or month)');return;}
-  const fileName=month+'.json';
-  const fileId=await findFileInFolder(currentFolderId, fileName);
-  dbg(`loadMonthData: findFileInFolder('${fileName}') => ${fileId}`);
-  if(fileId){
-    currentMonthFileId=fileId;
-    const txt=await readFromDriveById(fileId);
-    dbg(`loadMonthData: readFromDrive => ${txt?txt.length+' chars':'null'}`);
-    if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};dbg(`loadMonthData: parsed ${Object.keys(allData.entries).length} entries`);}catch(e){allData.entries={};dbg('loadMonthData: JSON parse error: '+e.message);}}
-  }else{dbg('loadMonthData: file not found');}
+
+  // Try new format first: YYYYMM_Hazard_Assessment.json + YYYYMM_Daily_Report.json
+  const haFileName=month+'_Hazard_Assessment.json';
+  const drFileName=month+'_Daily_Report.json';
+  const haFileId=await findFileInFolder(currentFolderId, haFileName);
+  const drFileId=await findFileInFolder(currentFolderId, drFileName);
+  dbg(`loadMonthData: HA=${haFileId}, DR=${drFileId}`);
+
+  if(haFileId||drFileId){
+    // New split format
+    currentMonthHAFileId=haFileId;
+    currentMonthDRFileId=drFileId;
+    if(haFileId){
+      const txt=await readFromDriveById(haFileId);
+      if(txt){try{const parsed=JSON.parse(txt);const entries=parsed.entries||parsed||{};
+        Object.keys(entries).forEach(dk=>{allData.entries[dk]={...allData.entries[dk],...entries[dk]};});
+        dbg(`loadMonthData: HA parsed ${Object.keys(entries).length} entries`);
+      }catch(e){dbg('loadMonthData: HA parse error: '+e.message);}}
+    }
+    if(drFileId){
+      const txt=await readFromDriveById(drFileId);
+      if(txt){try{const parsed=JSON.parse(txt);const entries=parsed.entries||parsed||{};
+        Object.keys(entries).forEach(dk=>{
+          if(!allData.entries[dk])allData.entries[dk]={};
+          allData.entries[dk].nippo=entries[dk].nippo||entries[dk];
+        });
+        dbg(`loadMonthData: DR parsed ${Object.keys(entries).length} entries`);
+      }catch(e){dbg('loadMonthData: DR parse error: '+e.message);}}
+    }
+  }else{
+    // Fallback: old single-file format (YYYYMM.json)
+    const oldFileName=month+'.json';
+    const oldFileId=await findFileInFolder(currentFolderId, oldFileName);
+    dbg(`loadMonthData: old format ${oldFileName} => ${oldFileId}`);
+    if(oldFileId){
+      currentMonthHAFileId=oldFileId; // reuse for backward compat saves
+      const txt=await readFromDriveById(oldFileId);
+      if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};
+        dbg(`loadMonthData: old format parsed ${Object.keys(allData.entries).length} entries`);
+      }catch(e){allData.entries={};dbg('loadMonthData: old format parse error: '+e.message);}}
+    }else{dbg('loadMonthData: no files found');}
+  }
+  dbg(`loadMonthData: total entries=${Object.keys(allData.entries).length}`);
 }
 
 async function switchMonth(newMonth){
@@ -569,18 +625,39 @@ async function saveCurrentMonth(silent){
   try{
     if(currentFolderId){
       if(!currentMonth)return false;
-      const jsonStr=JSON.stringify({entries:allData.entries},null,2);
-      if(currentMonthFileId){
-        const ok=await writeToDriveById(currentMonthFileId, jsonStr);
-        if(!silent&&ok){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
-        if(!silent&&!ok)showConfigStatus('❌ 保存失敗');
-        return ok;
+      // Split entries into HA (KY activity) and DR (daily report)
+      const haEntries={};
+      const drEntries={};
+      Object.keys(allData.entries).forEach(dk=>{
+        const e=allData.entries[dk];
+        const haCopy={...e};
+        delete haCopy.nippo;
+        haEntries[dk]=haCopy;
+        if(e.nippo){
+          drEntries[dk]={nippo:e.nippo};
+        }
+      });
+      const haJson=JSON.stringify({entries:haEntries},null,2);
+      const drJson=JSON.stringify({entries:drEntries},null,2);
+
+      // Save Hazard Assessment file
+      if(currentMonthHAFileId){
+        await writeToDriveById(currentMonthHAFileId, haJson);
       }else{
-        const fileName=currentMonth+'.json';
-        currentMonthFileId=await createFileInFolder(currentFolderId, fileName, jsonStr);
-        if(!silent){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
-        return true;
+        const haFileName=currentMonth+'_Hazard_Assessment.json';
+        currentMonthHAFileId=await createFileInFolder(currentFolderId, haFileName, haJson);
       }
+      // Save Daily Report file
+      if(Object.keys(drEntries).length>0){
+        if(currentMonthDRFileId){
+          await writeToDriveById(currentMonthDRFileId, drJson);
+        }else{
+          const drFileName=currentMonth+'_Daily_Report.json';
+          currentMonthDRFileId=await createFileInFolder(currentFolderId, drFileName, drJson);
+        }
+      }
+      if(!silent){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
+      return true;
     }
     if(currentProjectFileId){
       const jsonStr=JSON.stringify(allData,null,2);
@@ -610,7 +687,7 @@ async function createNewProject(){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
   }
-  const folderName='KY_'+trimmed;
+  const folderName=trimmed;
   const createResp=await gapi.client.drive.files.create({
     resource:{name:folderName, mimeType:'application/vnd.google-apps.folder'},fields:'id'
   });
@@ -622,7 +699,8 @@ async function createNewProject(){
   driveFileId=null;
   allData={config:config,entries:{}};
   currentMonth=getMonthKey()||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
-  currentMonthFileId=null;
+  currentMonthHAFileId=null;
+  currentMonthDRFileId=null;
   await refreshProjectList();
   const sel=document.getElementById('projectSelect');
   if(sel) sel.value=folderId;
@@ -640,7 +718,7 @@ async function deleteCurrentProject(){
   if(!confirm('本当に削除してよろしいですか？（最終確認）'))return;
   await gapi.client.drive.files.update({fileId:id,resource:{trashed:true}});
   currentFolderId=null;currentProjectFileId=null;driveFileId=null;
-  currentMonth='';currentMonthFileId=null;
+  currentMonth='';currentMonthHAFileId=null;currentMonthDRFileId=null;
   allData={config:{},entries:{}};
   await refreshProjectList();
   const pnEl=document.getElementById('projectName');
@@ -1400,7 +1478,8 @@ async function initCommon(){
     currentProjectFileId=sessionStorage.getItem('currentProjectFileId')||null;
     currentMonth=sessionStorage.getItem('currentMonth')||'';
     masterFileId=sessionStorage.getItem('masterFileId')||null;
-    currentMonthFileId=sessionStorage.getItem('currentMonthFileId')||null;
+    currentMonthHAFileId=sessionStorage.getItem('currentMonthHAFileId')||null;
+    currentMonthDRFileId=sessionStorage.getItem('currentMonthDRFileId')||null;
     try{ const s=sessionStorage.getItem('projectList'); if(s) projectList=JSON.parse(s); }catch(e){}
     try{ const s=sessionStorage.getItem('allDataConfig'); if(s) allData.config=JSON.parse(s); }catch(e){}
     try{ const s=sessionStorage.getItem('allDataEntries'); if(s) allData.entries=JSON.parse(s); }catch(e){}
@@ -1497,13 +1576,20 @@ async function connectDriveBackground(){
       }
       // Ensure masterFileId and currentMonthFileId are valid for auto-save
       if(!masterFileId) await findOrCreateMasterFile();
-      if(currentFolderId && !currentMonthFileId){
+      if(currentFolderId && !currentMonthHAFileId){
         const mk=getMonthKey();
         const month=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
-        dbg(`connectDriveBackground: looking for ${month}.json`);
-        const fileId=await findFileInFolder(currentFolderId, month+'.json');
-        if(fileId){currentMonthFileId=fileId;dbg('connectDriveBackground: monthFileId='+fileId);}
-        else{dbg('connectDriveBackground: month file not found');}
+        dbg(`connectDriveBackground: looking for ${month} files`);
+        const haId=await findFileInFolder(currentFolderId, month+'_Hazard_Assessment.json');
+        const drId=await findFileInFolder(currentFolderId, month+'_Daily_Report.json');
+        if(haId){currentMonthHAFileId=haId;dbg('connectDriveBackground: HA fileId='+haId);}
+        if(drId){currentMonthDRFileId=drId;dbg('connectDriveBackground: DR fileId='+drId);}
+        if(!haId&&!drId){
+          // Fallback: old single file
+          const oldId=await findFileInFolder(currentFolderId, month+'.json');
+          if(oldId){currentMonthHAFileId=oldId;dbg('connectDriveBackground: old format fileId='+oldId);}
+          else{dbg('connectDriveBackground: no month files found');}
+        }
       }
     }else{dbg('connectDriveBackground: skip - no token or gapi not inited');}
     dbg('connectDriveBackground: done');
@@ -1523,8 +1609,10 @@ function saveSession(){
   else sessionStorage.removeItem('currentMonth');
   if(masterFileId) sessionStorage.setItem('masterFileId', masterFileId);
   else sessionStorage.removeItem('masterFileId');
-  if(currentMonthFileId) sessionStorage.setItem('currentMonthFileId', currentMonthFileId);
-  else sessionStorage.removeItem('currentMonthFileId');
+  if(currentMonthHAFileId) sessionStorage.setItem('currentMonthHAFileId', currentMonthHAFileId);
+  else sessionStorage.removeItem('currentMonthHAFileId');
+  if(currentMonthDRFileId) sessionStorage.setItem('currentMonthDRFileId', currentMonthDRFileId);
+  else sessionStorage.removeItem('currentMonthDRFileId');
   try{
     sessionStorage.setItem('projectList', JSON.stringify(projectList));
     if(allData.config&&Object.keys(allData.config).length>0){
@@ -1553,11 +1641,11 @@ function navigateTo(page){
 async function generateTestProject(){
   if(!driveReady||!driveAccessToken){alert('先にGoogleドライブにログインしてください');return;}
   const projectName='動作確認テスト工事';
-  dbg('generateTestProject: creating folder KY_'+projectName);
+  dbg('generateTestProject: creating folder '+projectName);
   showConfigStatus('⏳ テストプロジェクト作成中...');
 
-  // 1) Create project folder
-  const folderMeta={name:'KY_'+projectName, mimeType:'application/vnd.google-apps.folder'};
+  // 1) Create project folder (folder name = project name only)
+  const folderMeta={name:projectName, mimeType:'application/vnd.google-apps.folder'};
   const folderResp=await fetch('https://www.googleapis.com/drive/v3/files',{
     method:'POST',
     headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
@@ -1571,9 +1659,23 @@ async function generateTestProject(){
   const config={projectName:projectName,creator:'塩畑　圭一郎'};
   await createFileInFolder(folderId,'config.json',JSON.stringify(config));
 
+  // 2.5) Ensure masterData.workCategories has test categories
+  const workItems=['路体盛土工','法面整形工','排水構造物工','仮設工','舗装工','土工','コンクリート工','鉄筋工','型枠工','基礎工'];
+  if(!masterData.workCategories||masterData.workCategories.length===0){
+    masterData.workCategories=[
+      {category:'土木工事',items:workItems.map(n=>({name:n,hazards:[]}))},
+      {category:'仮設工事',items:[{name:'仮設工',hazards:[]},{name:'足場工',hazards:[]}]}
+    ];
+    dbg('generateTestProject: created workCategories in masterData');
+    await saveMasterData();
+  }else if(!masterData.workCategories.some(c=>c.category==='土木工事')){
+    masterData.workCategories.push({category:'土木工事',items:workItems.map(n=>({name:n,hazards:[]}))});
+    dbg('generateTestProject: added 土木工事 category to masterData');
+    await saveMasterData();
+  }
+
   // 3) Generate 45 days of data (today - 44 days ~ today)
   const today=new Date();
-  const workItems=['路体盛土工','法面整形工','排水構造物工','仮設工','舗装工','土工','コンクリート工','鉄筋工','型枠工','基礎工'];
   const hazards=M["危険要因"];
   const measures=M["安全対策"];
   const workers=['坂本','水野　博之','福島　利紀','塗木　一鑑','濱砂　幸治','日高　英司'];
@@ -1655,13 +1757,23 @@ async function generateTestProject(){
     monthData[month][dk]=entry;
   }
 
-  // 4) Save monthly files to Drive
+  // 4) Save monthly files to Drive (split into HA + DR)
   const months=Object.keys(monthData).sort();
-  dbg('generateTestProject: saving '+months.length+' month files');
+  dbg('generateTestProject: saving '+months.length+' months x 2 files');
   for(const month of months){
-    const json=JSON.stringify({entries:monthData[month]},null,2);
-    await createFileInFolder(folderId,month+'.json',json);
-    dbg('generateTestProject: saved '+month+'.json ('+Object.keys(monthData[month]).length+' days)');
+    // Split into Hazard Assessment and Daily Report
+    const haEntries={};
+    const drEntries={};
+    Object.keys(monthData[month]).forEach(dk=>{
+      const e=monthData[month][dk];
+      const haCopy={...e};
+      delete haCopy.nippo;
+      haEntries[dk]=haCopy;
+      if(e.nippo) drEntries[dk]={nippo:e.nippo};
+    });
+    await createFileInFolder(folderId,month+'_Hazard_Assessment.json',JSON.stringify({entries:haEntries},null,2));
+    await createFileInFolder(folderId,month+'_Daily_Report.json',JSON.stringify({entries:drEntries},null,2));
+    dbg('generateTestProject: saved '+month+' HA+DR ('+Object.keys(haEntries).length+' days)');
   }
 
   // 5) Refresh project list and select the new project
