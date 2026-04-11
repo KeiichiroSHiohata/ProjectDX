@@ -835,6 +835,7 @@ function onDateChange(){
 }
 
 function onPageReady(){
+  dbg('DR.onPageReady() start');
   // Update compact bar with project info
   const pn=document.getElementById('nippoProjectName');
   if(pn && allData.config?.projectName) pn.textContent=allData.config.projectName;
@@ -842,15 +843,21 @@ function onPageReady(){
   // Set date to today if empty
   const wd=document.getElementById('workDate');
   if(wd && !wd.value) wd.value=localDateStr(new Date());
+  dbg(`DR.onPageReady: workDate=${wd?.value}, projectName=${allData.config?.projectName}`);
 
   // Refresh creator dropdown
   refreshCreatorSelect();
+
+  // Debug entry info
+  const dk=getDateKey();
+  dbg(`DR.onPageReady: dateKey=${dk}, hasEntry=${!!allData.entries[dk]}, hasNippo=${!!(allData.entries[dk]?.nippo)}, allEntryKeys=[${Object.keys(allData.entries||{}).join(',')}]`);
 
   // Restore nippo data for current date
   restoreNippoData();
 
   // Update datalists from master
   updateNippoDataLists();
+  dbg('DR.onPageReady: done');
 }
 
 window.addEventListener('DOMContentLoaded', async ()=>{

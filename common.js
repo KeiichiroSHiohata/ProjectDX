@@ -1,5 +1,32 @@
 // ============ common.js - Shared Module for Multi-Page KY Management System ============
 
+// ============ Debug Logging ============
+const _dbgLog=[];
+function dbg(msg){
+  const ts=new Date().toLocaleTimeString('ja-JP');
+  const line=`[${ts}] ${msg}`;
+  _dbgLog.push(line);
+  console.log('[KY-DBG]',msg);
+  // Update debug panel if it exists
+  const el=document.getElementById('_dbgPanel');
+  if(el) el.textContent=_dbgLog.slice(-20).join('\n');
+}
+function showDebugPanel(){
+  let el=document.getElementById('_dbgPanel');
+  if(!el){
+    el=document.createElement('pre');
+    el.id='_dbgPanel';
+    el.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0f0;font-size:11px;padding:8px;z-index:99999;font-family:monospace;white-space:pre-wrap;border-top:2px solid #0f0';
+    document.body.appendChild(el);
+  }
+  el.textContent=_dbgLog.slice(-20).join('\n');
+  el.style.display='block';
+}
+function hideDebugPanel(){
+  const el=document.getElementById('_dbgPanel');
+  if(el) el.style.display='none';
+}
+
 // ============ Master Data ============
 const M={
   "単位":["式","m","m2","m3","基","個","箇所","枚","組","t","kg","km","g"],
@@ -187,6 +214,7 @@ function handleDriveLogin(){
 
 // Drive接続成功後の処理（ホームページ専用。サブページはconnectDriveBackground経由）
 async function onDriveConnected(){
+  dbg('onDriveConnected() start');
   const statusEl=document.getElementById('driveStatus');
   if(statusEl){
     statusEl.style.background='#ecfdf5';
@@ -199,29 +227,49 @@ async function onDriveConnected(){
 
   // Load master data from Drive
   await findOrCreateMasterFile();
+  dbg('onDriveConnected: masterFileId='+masterFileId);
   await loadMasterData();
+  dbg('onDriveConnected: masterData workers='+masterData.workers.length);
   refreshAllHazardSelects();
   refreshCreatorSelect();
 
   // List projects and populate selector
   const sel=document.getElementById('projectSelect');
+  dbg('onDriveConnected: projectSelect element='+(sel?'found':'NOT FOUND'));
   if(sel){
     await refreshProjectList();
+    dbg('onDriveConnected: projectList='+projectList.length+' items: '+projectList.map(p=>p.name).join(', '));
     if(projectList.length>0){
       const savedId=currentFolderId||currentProjectFileId;
       if(savedId&&projectList.some(p=>p.id===savedId)){
         sel.value=savedId;
+        dbg('onDriveConnected: restored project '+savedId);
       }else{
         sel.value=projectList[0].id;
+        dbg('onDriveConnected: selected first project '+projectList[0].id);
       }
       await onProjectSelect();
+      dbg('onDriveConnected: after onProjectSelect, entries='+Object.keys(allData.entries).length);
     }else{
+      dbg('onDriveConnected: no projects found');
       showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
+    }
+  }else{
+    dbg('onDriveConnected: NO projectSelect - sub-page login detected');
+    // Sub-page login: load project using saved session state
+    if(currentFolderId){
+      dbg('onDriveConnected: sub-page - loading folder '+currentFolderId);
+      await switchToFolder(currentFolderId);
+    }else if(currentProjectFileId){
+      dbg('onDriveConnected: sub-page - loading legacy '+currentProjectFileId);
+      await switchToLegacy(currentProjectFileId);
     }
   }
 
   // Save session state for sub-pages
   saveSession();
+  dbg('onDriveConnected: saveSession done. entries='+Object.keys(allData.entries).length);
+  showDebugPanel();
 }
 
 // ============ Drive 低レベルヘルパー ============
@@ -427,6 +475,7 @@ async function onProjectSelect(){
 }
 
 async function switchToFolder(folderId){
+  dbg(`switchToFolder(${folderId})`);
   if(driveReady&&(currentFolderId||currentProjectFileId)){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
@@ -435,9 +484,10 @@ async function switchToFolder(folderId){
   currentProjectFileId=null;
   driveFileId=null;
   const configId=await findFileInFolder(folderId, CONFIG_FILE_NAME);
+  dbg(`switchToFolder: config.json => ${configId}`);
   if(configId){
     const txt=await readFromDriveById(configId);
-    if(txt){try{allData.config=JSON.parse(txt);}catch(e){allData.config={};}}
+    if(txt){try{allData.config=JSON.parse(txt);dbg('switchToFolder: config loaded, projectName='+allData.config.projectName);}catch(e){allData.config={};}}
   }
   const pnEl=document.getElementById('projectName');
   if(pnEl) pnEl.textContent=allData.config.projectName||'';
@@ -445,7 +495,9 @@ async function switchToFolder(folderId){
   if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
   const mk=getMonthKey();
   currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  dbg(`switchToFolder: monthKey=${mk}, currentMonth=${currentMonth}`);
   await loadMonthData(currentMonth);
+  dbg(`switchToFolder: after loadMonthData, entries=${Object.keys(allData.entries).length}`);
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
   showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');
@@ -481,16 +533,19 @@ async function switchToLegacy(fileId){
 }
 
 async function loadMonthData(month){
+  dbg(`loadMonthData(${month}) start, folderId=${currentFolderId}`);
   allData.entries={};
   currentMonthFileId=null;
-  if(!currentFolderId||!month)return;
+  if(!currentFolderId||!month){dbg('loadMonthData: skip (no folderId or month)');return;}
   const fileName=month+'.json';
   const fileId=await findFileInFolder(currentFolderId, fileName);
+  dbg(`loadMonthData: findFileInFolder('${fileName}') => ${fileId}`);
   if(fileId){
     currentMonthFileId=fileId;
     const txt=await readFromDriveById(fileId);
-    if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};}catch(e){allData.entries={};}}
-  }
+    dbg(`loadMonthData: readFromDrive => ${txt?txt.length+' chars':'null'}`);
+    if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};dbg(`loadMonthData: parsed ${Object.keys(allData.entries).length} entries`);}catch(e){allData.entries={};dbg('loadMonthData: JSON parse error: '+e.message);}}
+  }else{dbg('loadMonthData: file not found');}
 }
 
 async function switchMonth(newMonth){
@@ -1324,9 +1379,11 @@ function waitForGis(maxWait){
 
 async function initCommon(){
   const isHomePage=!!document.getElementById('projectSelect');
+  dbg(`initCommon() start, isHomePage=${isHomePage}, url=${location.pathname}`);
 
   // 1) Restore session from sessionStorage
   const savedToken=sessionStorage.getItem('driveAccessToken');
+  dbg(`initCommon: savedToken=${savedToken?'yes ('+savedToken.substring(0,10)+'...)':'no'}`);
   if(savedToken){
     driveAccessToken=savedToken;
     currentFolderId=sessionStorage.getItem('currentFolderId')||null;
@@ -1346,77 +1403,106 @@ async function initCommon(){
       if(!masterData.workers)masterData.workers=[];
       if(!masterData.workCategories)masterData.workCategories=[];
     }}catch(e){}
+    dbg(`initCommon: session restored - folderId=${currentFolderId}, month=${currentMonth}, entries=${Object.keys(allData.entries).length}, entryKeys=[${Object.keys(allData.entries).join(',')}]`);
   }
 
   // 2) SUB-PAGE FAST PATH: show UI instantly from cache, then connect in background
   if(!isHomePage && savedToken && (currentFolderId||currentProjectFileId)){
+    dbg('initCommon: SUB-PAGE FAST PATH');
     // Apply cached master data to UI selects
     refreshAllHazardSelects();
     refreshCreatorSelect();
     // Mark as ready so onPageReady can display data
     driveReady=true;
     // Show UI immediately
-    if(typeof onPageReady==='function') onPageReady();
+    if(typeof onPageReady==='function'){
+      dbg('initCommon: calling onPageReady()');
+      onPageReady();
+    }
     // Connect to Drive API in background (for auto-save)
     connectDriveBackground();
+    showDebugPanel();
     return;
   }
 
   // 3) HOME PAGE or FIRST VISIT: full initialization
+  dbg('initCommon: full init path (home page or first visit)');
   const [gapiOk, gisOk] = await Promise.all([
     waitForGapi(10000),
     waitForGis(10000)
   ]);
+  dbg(`initCommon: gapi=${gapiOk}, gis=${gisOk}`);
   if(gapiOk){
-    try{ await initGapi(); }catch(e){console.warn('GAPI init failed',e);}
-  }else{ console.warn('gapi did not load within 10s'); }
+    try{ await initGapi(); dbg('initCommon: gapi inited'); }catch(e){console.warn('GAPI init failed',e);dbg('initCommon: gapi FAILED: '+e.message);}
+  }else{ console.warn('gapi did not load within 10s'); dbg('initCommon: gapi timeout!'); }
   if(gisOk){
-    try{ initGis(); }catch(e){console.warn('GIS init failed',e);}
-  }else{ console.warn('GIS did not load within 10s'); }
+    try{ initGis(); dbg('initCommon: gis inited'); }catch(e){console.warn('GIS init failed',e);dbg('initCommon: gis FAILED: '+e.message);}
+  }else{ console.warn('GIS did not load within 10s'); dbg('initCommon: gis timeout!'); }
 
   // 4) If token exists, reconnect to Drive
+  dbg(`initCommon: step4 - token=${!!driveAccessToken}, gapiInited=${gapiInited}`);
   if(driveAccessToken&&gapiInited){
     try{
       gapi.client.setToken({access_token:driveAccessToken});
       driveReady=true;
+      dbg('initCommon: calling onDriveConnected()');
       await onDriveConnected();
+      dbg('initCommon: onDriveConnected() done, entries='+Object.keys(allData.entries).length);
     }catch(e){
       console.warn('Session restore failed',e);
+      dbg('initCommon: onDriveConnected FAILED: '+e.message);
       driveAccessToken=null;
       sessionStorage.removeItem('driveAccessToken');
     }
   }
 
   // 5) Page-specific init
+  dbg('initCommon: step5 - calling onPageReady, entries='+Object.keys(allData.entries).length);
   if(typeof onPageReady==='function') onPageReady();
+  showDebugPanel();
 }
 
 // Background Drive connection for sub-pages (non-blocking)
 // Only establishes API connection for auto-save. Data is already loaded from cache.
 async function connectDriveBackground(){
+  dbg('connectDriveBackground() start');
   try{
     const [gapiOk, gisOk] = await Promise.all([
       waitForGapi(10000),
       waitForGis(10000)
     ]);
+    dbg(`connectDriveBackground: gapi=${gapiOk}, gis=${gisOk}`);
     if(gapiOk){ await initGapi(); }
     if(gisOk){ initGis(); }
     if(driveAccessToken&&gapiInited){
       gapi.client.setToken({access_token:driveAccessToken});
+      dbg('connectDriveBackground: token set, verifying with test API call...');
+      // Verify token is still valid
+      try{
+        const testResp=await gapi.client.drive.files.list({q:"trashed=false",pageSize:1,fields:'files(id)'});
+        dbg('connectDriveBackground: token valid, API accessible');
+      }catch(apiErr){
+        dbg('connectDriveBackground: TOKEN EXPIRED/INVALID - '+apiErr.message);
+        // Token is expired, will need re-login
+      }
       // Ensure masterFileId and currentMonthFileId are valid for auto-save
       if(!masterFileId) await findOrCreateMasterFile();
       if(currentFolderId && !currentMonthFileId){
         const mk=getMonthKey();
         const month=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+        dbg(`connectDriveBackground: looking for ${month}.json`);
         const fileId=await findFileInFolder(currentFolderId, month+'.json');
-        if(fileId) currentMonthFileId=fileId;
+        if(fileId){currentMonthFileId=fileId;dbg('connectDriveBackground: monthFileId='+fileId);}
+        else{dbg('connectDriveBackground: month file not found');}
       }
-    }
-  }catch(e){ console.warn('Background Drive connect failed:',e); }
+    }else{dbg('connectDriveBackground: skip - no token or gapi not inited');}
+    dbg('connectDriveBackground: done');
+  }catch(e){ console.warn('Background Drive connect failed:',e); dbg('connectDriveBackground: ERROR '+e.message); }
 }
 
 // ============ Session save helper ============
 function saveSession(){
+  dbg(`saveSession: entries=${Object.keys(allData.entries).length}, folderId=${currentFolderId}, month=${currentMonth}`);
   if(driveAccessToken) sessionStorage.setItem('driveAccessToken', driveAccessToken);
   else sessionStorage.removeItem('driveAccessToken');
   if(currentFolderId) sessionStorage.setItem('currentFolderId', currentFolderId);
