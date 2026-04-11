@@ -263,7 +263,7 @@ function addWorkBlock(){
     </div>
     <div class="form-row">
       <div class="fg f1"><label>工種</label><select class="wk-cat" onchange="onCategorySelect(this)" style="background:#fffbeb;border-color:#f59e0b">${catOpts}</select></div>
-      <div class="fg f2"><label>作業項目</label><select class="wk-item" onchange="autoSave()" style="background:#fffbeb"><option value="">--</option></select></div>
+      <div class="fg f2"><label>作業項目</label><select class="wk-item" onchange="onWorkItemSelect(this)" style="background:#fffbeb"><option value="">--</option></select></div>
     </div>
     <div id="hazards-${wkId}"></div>
     <button class="btn btn-add-sm" onclick="addHazard(this)">＋ 危険要因</button>
@@ -282,6 +282,38 @@ function onCategorySelect(sel){
     const nm=typeof v==='string'?v:(v.name||v);
     return `<option value="${nm}">${nm}</option>`;
   }).join('');
+  autoSave();
+}
+
+function onWorkItemSelect(sel){
+  const block=sel.closest('.work-block');
+  const cat=block.querySelector('.wk-cat')?.value||'';
+  const itemName=sel.value;
+  if(!cat||!itemName){autoSave();return;}
+  // Find item in masterData.workCategories
+  const catObj=masterData.workCategories.find(c=>c.category===cat);
+  if(!catObj){autoSave();return;}
+  const itemObj=catObj.items.find(it=>(typeof it==='string'?it:it.name)===itemName);
+  if(!itemObj||typeof itemObj==='string'){autoSave();return;}
+  const hazards=itemObj.hazards||[];
+  if(hazards.length===0){autoSave();return;}
+  // Clear existing hazard rows and add from master
+  const wkId=block.getAttribute('data-wk-id');
+  const hazDiv=block.querySelector(`#hazards-${wkId}`);
+  if(hazDiv) hazDiv.innerHTML='';
+  hazards.forEach(h=>{
+    addHazard(block.querySelector('.btn-add-sm'));
+    const lastHaz=block.querySelector('.hazard-row:last-child');
+    if(lastHaz&&h.hazard){
+      lastHaz.querySelector('.haz-sel').value=h.hazard;
+      // Apply defaults from HAZARD_DEFAULTS or from master item
+      const def=HAZARD_DEFAULTS[h.hazard]||{};
+      lastHaz.querySelector('.haz-sev').value=h.severity||def.sev||'';
+      lastHaz.querySelector('.haz-freq').value=h.frequency||def.freq||'';
+      lastHaz.querySelector('.haz-meas').value=h.measure||def.measure||'';
+      calcS(lastHaz);
+    }
+  });
   autoSave();
 }
 
