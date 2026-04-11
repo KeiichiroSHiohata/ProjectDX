@@ -205,17 +205,31 @@ async function onDriveConnected(){
   refreshAllHazardSelects();
   refreshCreatorSelect();
 
-  // 3. List project files and populate selector
-  await refreshProjectList();
-
-  // 4. Auto-select first project if available
+  // 3. Check if we're on the home page (has projectSelect)
   const sel=document.getElementById('projectSelect');
-  if(sel&&projectList.length>0){
-    sel.value=projectList[0].id;
-    await onProjectSelect();
+  if(sel){
+    // HOME PAGE: full flow — list projects and populate selector
+    await refreshProjectList();
+    if(projectList.length>0){
+      // If we have a saved folder, re-select it; otherwise pick first
+      const savedId=currentFolderId||currentProjectFileId;
+      if(savedId&&projectList.some(p=>p.id===savedId)){
+        sel.value=savedId;
+      }else{
+        sel.value=projectList[0].id;
+      }
+      await onProjectSelect();
+    }else{
+      if(document.getElementById('configStatus')){
+        showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
+      }
+    }
   }else{
-    if(document.getElementById('configStatus')){
-      showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
+    // SUB-PAGE (Hazard_Assessment / Daily_Report): load data directly from saved IDs
+    if(currentFolderId){
+      await switchToFolder(currentFolderId);
+    }else if(currentProjectFileId){
+      await switchToLegacy(currentProjectFileId);
     }
   }
 
@@ -440,7 +454,8 @@ async function switchToFolder(folderId){
   if(pnEl) pnEl.textContent=allData.config.projectName||'';
   const creatorEl=document.getElementById('creator');
   if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
-  currentMonth=getMonthKey()||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  const mk=getMonthKey();
+  currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
   await loadMonthData(currentMonth);
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
@@ -1326,9 +1341,15 @@ async function initCommon(){
     currentFolderId=sessionStorage.getItem('currentFolderId')||null;
     currentProjectFileId=sessionStorage.getItem('currentProjectFileId')||null;
     currentMonth=sessionStorage.getItem('currentMonth')||'';
+    masterFileId=sessionStorage.getItem('masterFileId')||null;
+    currentMonthFileId=sessionStorage.getItem('currentMonthFileId')||null;
     try{
       const savedProjects=sessionStorage.getItem('projectList');
       if(savedProjects) projectList=JSON.parse(savedProjects);
+    }catch(e){}
+    try{
+      const savedConfig=sessionStorage.getItem('allDataConfig');
+      if(savedConfig) allData.config=JSON.parse(savedConfig);
     }catch(e){}
   }
 
@@ -1359,6 +1380,7 @@ async function initCommon(){
       driveReady=true;
       await onDriveConnected();
     }catch(e){
+      console.warn('Session restore failed, clearing token',e);
       driveAccessToken=null;
       sessionStorage.removeItem('driveAccessToken');
     }
@@ -1371,17 +1393,31 @@ async function initCommon(){
 // ============ Session save helper ============
 function saveSession(){
   if(driveAccessToken) sessionStorage.setItem('driveAccessToken', driveAccessToken);
+  else sessionStorage.removeItem('driveAccessToken');
   if(currentFolderId) sessionStorage.setItem('currentFolderId', currentFolderId);
+  else sessionStorage.removeItem('currentFolderId');
   if(currentProjectFileId) sessionStorage.setItem('currentProjectFileId', currentProjectFileId);
+  else sessionStorage.removeItem('currentProjectFileId');
   if(currentMonth) sessionStorage.setItem('currentMonth', currentMonth);
+  else sessionStorage.removeItem('currentMonth');
+  if(masterFileId) sessionStorage.setItem('masterFileId', masterFileId);
+  else sessionStorage.removeItem('masterFileId');
+  if(currentMonthFileId) sessionStorage.setItem('currentMonthFileId', currentMonthFileId);
+  else sessionStorage.removeItem('currentMonthFileId');
   try{
     sessionStorage.setItem('projectList', JSON.stringify(projectList));
+    if(allData.config&&Object.keys(allData.config).length>0){
+      sessionStorage.setItem('allDataConfig', JSON.stringify(allData.config));
+    }
   }catch(e){}
 }
 
 // ============ Page Navigation ============
 function navigateTo(page){
-  // Save any pending data first
-  if(typeof autoSaveCurrentScreen==='function') autoSaveCurrentScreen();
+  // Save any pending form data first
+  if(typeof autoSave==='function') autoSave();
+  if(typeof autoSaveNippo==='function') autoSaveNippo();
+  // Persist session state to sessionStorage before leaving
+  saveSession();
   window.location.href=page;
 }

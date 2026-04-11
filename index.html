@@ -306,14 +306,12 @@ function loadDataOverview() {
   container.innerHTML = html;
 }
 
-function navigateTo(page) {
-  window.location.href = page;
-}
+// navigateTo() is defined in common.js (with saveSession)
 
 // Initialize
-window.addEventListener('DOMContentLoaded', () => {
-  initCommon();
-  onPageReady();
+window.addEventListener('DOMContentLoaded', async () => {
+  await initCommon();
+  // onPageReady() is called inside initCommon() after Drive data is loaded
 });
 </script>
 </body>

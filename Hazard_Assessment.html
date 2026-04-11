@@ -1008,9 +1008,9 @@ function onPageReady(){
   });
 }
 
-window.addEventListener('DOMContentLoaded',()=>{
-  initCommon();
-  onPageReady();
+window.addEventListener('DOMContentLoaded', async ()=>{
+  await initCommon();
+  // onPageReady() is called inside initCommon() after Drive data is loaded
 });
 </script>
 </body>
