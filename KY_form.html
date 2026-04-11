@@ -6,6 +6,7 @@
 <title>建設現場管理システム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="nippo_tmpl.js"></script>
 <!-- Google Identity Services (OAuth2) + Google API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -3068,15 +3069,32 @@ async function exportNippoExcel(){
     const dateVal=document.getElementById('workDate').value;
     if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
 
-    // テンプレート取得（キャッシュ付き）
+    // テンプレート取得（埋め込みGZ → ファイル選択フォールバック）
     if(!_nippoTmplCache){
-      if(msg){msg.textContent='📂 作業日報.xlsx テンプレートを選択してください';msg.className='status-msg loading';}
-      const ab=await pickNippoTemplate();
-      if(!ab){
-        if(msg){msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';}
-        if(btn)btn.disabled=false;return;
+      if(typeof NIPPO_TMPL_GZ==='string'&&NIPPO_TMPL_GZ.length>100){
+        try{
+          if(msg){msg.textContent='⏳ テンプレート展開中…';msg.className='status-msg loading';}
+          const gzBin=atob(NIPPO_TMPL_GZ);
+          const gzBuf=new Uint8Array(gzBin.length);
+          for(let k=0;k<gzBin.length;k++)gzBuf[k]=gzBin.charCodeAt(k);
+          const ds=new DecompressionStream('gzip');
+          const wr=ds.writable.getWriter();
+          wr.write(gzBuf);wr.close();
+          _nippoTmplCache=await new Response(ds.readable).arrayBuffer();
+        }catch(e){
+          console.warn('GZ展開失敗、ファイル選択へ',e);
+          _nippoTmplCache=null;
+        }
       }
-      _nippoTmplCache=ab;
+      if(!_nippoTmplCache){
+        if(msg){msg.textContent='📂 作業日報テンプレート(.xlsx)を選択してください';msg.className='status-msg loading';}
+        const ab=await pickNippoTemplate();
+        if(!ab){
+          if(msg){msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';}
+          if(btn)btn.disabled=false;return;
+        }
+        _nippoTmplCache=ab;
+      }
     }
     const tmplBuf=new Uint8Array(_nippoTmplCache);
 
@@ -3169,27 +3187,39 @@ async function exportNippoExcel(){
       }
     }
 
-    // === 作業従事者 グループ1 (rows 7,9,11,13,15,17,19,21,23 — 名C33, 開始C41, 終了C46, 所属C51) ===
+    // HH:MM → Excel時間小数 変換ヘルパー
+    function timeToExcel(hhmm){
+      if(!hhmm)return null;
+      const p=hhmm.split(':');
+      if(p.length<2)return null;
+      return (parseInt(p[0])+parseInt(p[1])/60)/24;
+    }
+
+    // === 作業従事者 グループ1 (rows 7,9,11,13,15,17,19,21,23 — 名AG33, 開始AO41, 終了AT46, 所属AY51) ===
     for(let i=0;i<9;i++){
       const r=nippoWorkRows[i];
       if(data.workers[i]){
         setStr(r,33,data.workers[i].name||'');
-        setStr(r,41,data.workers[i].start||'');
-        setStr(r,46,data.workers[i].end||'');
+        const st=timeToExcel(data.workers[i].start);
+        const en=timeToExcel(data.workers[i].end);
+        if(st!==null)setNum(r,41,st);else clearVal(r,41);
+        if(en!==null)setNum(r,46,en);else clearVal(r,46);
         setStr(r,51,data.workers[i].company||'');
       }else{
         clearVal(r,33);clearVal(r,41);clearVal(r,46);clearVal(r,51);
       }
     }
 
-    // === 作業従事者 グループ2 (rows 7,9,11,13,15,17,19,21,23 — 名C62, 開始C70, 終了C75, 所属C80) ===
+    // === 作業従事者 グループ2 (rows 7,9,11,13,15,17,19,21,23 — 名BJ62, 開始BR70, 終了BW75, 所属CB80) ===
     for(let i=0;i<9;i++){
       const r=nippoWorkRows[i];
       const wi=i+9;
       if(data.workers[wi]){
         setStr(r,62,data.workers[wi].name||'');
-        setStr(r,70,data.workers[wi].start||'');
-        setStr(r,75,data.workers[wi].end||'');
+        const st=timeToExcel(data.workers[wi].start);
+        const en=timeToExcel(data.workers[wi].end);
+        if(st!==null)setNum(r,70,st);else clearVal(r,70);
+        if(en!==null)setNum(r,75,en);else clearVal(r,75);
         setStr(r,80,data.workers[wi].company||'');
       }else{
         clearVal(r,62);clearVal(r,70);clearVal(r,75);clearVal(r,80);
@@ -3224,14 +3254,14 @@ async function exportNippoExcel(){
       const r=complRows[i];
       if(data.complaints[i]){
         setStr(r,1,data.complaints[i].text||'');
-        // カテゴリチェック — 全クリアしてからセット
-        for(const cc of Object.values(catColMap)) clearVal(r,cc);
+        // カテゴリチェック — 全セルをリセットしてからセット
+        for(const [catName,catCol] of Object.entries(catColMap)) setStr(r,catCol,'□　'+catName);
         if(data.complaints[i].cat && catColMap[data.complaints[i].cat]!==undefined){
-          setStr(r,catColMap[data.complaints[i].cat],'✓');
+          setStr(r,catColMap[data.complaints[i].cat],'✓　'+data.complaints[i].cat);
         }
       }else{
         clearVal(r,1);
-        for(const cc of Object.values(catColMap)) clearVal(r,cc);
+        for(const [catName,catCol] of Object.entries(catColMap)) setStr(r,catCol,'□　'+catName);
       }
     }
 
