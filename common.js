@@ -1296,6 +1296,28 @@ function getMonthKey(){
 }
 
 // ============ Common Initialization for Pages ============
+// Google APIスクリプトの読み込みを待つヘルパー
+function waitForGapi(maxWait){
+  return new Promise((resolve)=>{
+    const start=Date.now();
+    (function check(){
+      if(typeof gapi!=='undefined'){resolve(true);return;}
+      if(Date.now()-start>maxWait){resolve(false);return;}
+      setTimeout(check,200);
+    })();
+  });
+}
+function waitForGis(maxWait){
+  return new Promise((resolve)=>{
+    const start=Date.now();
+    (function check(){
+      if(typeof google!=='undefined'&&google.accounts&&google.accounts.oauth2){resolve(true);return;}
+      if(Date.now()-start>maxWait){resolve(false);return;}
+      setTimeout(check,200);
+    })();
+  });
+}
+
 async function initCommon(){
   // 1) Try restoring session from sessionStorage
   const savedToken=sessionStorage.getItem('driveAccessToken');
@@ -1310,13 +1332,28 @@ async function initCommon(){
     }catch(e){}
   }
 
-  // 2) Init Google API
-  try{
-    await initGapi();
-  }catch(e){console.warn('GAPI init failed',e);}
+  // 2) Wait for Google API scripts to load (max 10 seconds)
+  const gapiOk=await waitForGapi(10000);
+  if(gapiOk){
+    try{
+      await initGapi();
+    }catch(e){console.warn('GAPI init failed',e);}
+  }else{
+    console.warn('gapi script did not load within 10s');
+  }
 
-  // 3) If token restored, try to reconnect
-  if(driveAccessToken){
+  // 3) Wait for GIS and init
+  const gisOk=await waitForGis(10000);
+  if(gisOk){
+    try{
+      initGis();
+    }catch(e){console.warn('GIS init failed',e);}
+  }else{
+    console.warn('GIS script did not load within 10s');
+  }
+
+  // 4) If token restored, try to reconnect
+  if(driveAccessToken&&gapiInited){
     try{
       gapi.client.setToken({access_token:driveAccessToken});
       driveReady=true;
@@ -1326,11 +1363,6 @@ async function initCommon(){
       sessionStorage.removeItem('driveAccessToken');
     }
   }
-
-  // 4) Init GIS
-  try{
-    initGis();
-  }catch(e){console.warn('GIS init failed',e);}
 
   // 5) Call page-specific init if defined
   if(typeof onPageReady==='function') onPageReady();
