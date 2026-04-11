@@ -185,7 +185,7 @@ function handleDriveLogin(){
   tokenClient.requestAccessToken();
 }
 
-// Drive接続成功後の処理
+// Drive接続成功後の処理（ホームページ専用。サブページはconnectDriveBackground経由）
 async function onDriveConnected(){
   const statusEl=document.getElementById('driveStatus');
   if(statusEl){
@@ -197,48 +197,17 @@ async function onDriveConnected(){
   const btn=document.getElementById('btnDriveLogin');
   if(btn){btn.textContent='✅ 接続済み';btn.disabled=true;btn.style.opacity='0.6';}
 
-  // 1. Check if we're on the home page or sub-page
-  const sel=document.getElementById('projectSelect');
-  const isHomePage=!!sel;
-
-  // 2. Load master data
-  if(isHomePage){
-    // Home page: always fresh from Drive
-    await findOrCreateMasterFile();
-    await loadMasterData();
-  }else{
-    // Sub-page: try cached master from session first
-    const cachedMaster=sessionStorage.getItem('masterDataCache');
-    if(cachedMaster){
-      try{
-        masterData=JSON.parse(cachedMaster);
-        if(masterData.hazards&&masterData.hazards.length>0)M["危険要因"]=[...masterData.hazards];
-        if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
-        if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
-        if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
-        if(!masterData.workers)masterData.workers=[];
-        if(!masterData.workCategories)masterData.workCategories=[];
-        console.log('[onDriveConnected] SUB-PAGE: master data restored from cache');
-      }catch(e){
-        await findOrCreateMasterFile();
-        await loadMasterData();
-      }
-    }else{
-      await findOrCreateMasterFile();
-      await loadMasterData();
-    }
-  }
-
-  // 3. Apply masters to UI
+  // Load master data from Drive
+  await findOrCreateMasterFile();
+  await loadMasterData();
   refreshAllHazardSelects();
   refreshCreatorSelect();
 
-  // 4. Load project data
-  if(isHomePage){
-    // HOME PAGE: full flow — list projects and populate selector
+  // List projects and populate selector
+  const sel=document.getElementById('projectSelect');
+  if(sel){
     await refreshProjectList();
     if(projectList.length>0){
-      // If we have a saved folder, re-select it; otherwise pick first
       const savedId=currentFolderId||currentProjectFileId;
       if(savedId&&projectList.some(p=>p.id===savedId)){
         sel.value=savedId;
@@ -247,24 +216,11 @@ async function onDriveConnected(){
       }
       await onProjectSelect();
     }else{
-      if(document.getElementById('configStatus')){
-        showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
-      }
-    }
-  }else{
-    // SUB-PAGE (Hazard_Assessment / Daily_Report): lightweight data load
-    console.log('[onDriveConnected] SUB-PAGE: currentFolderId=',currentFolderId,'currentProjectFileId=',currentProjectFileId);
-    if(currentFolderId){
-      // Use fast path: skip config search if already restored from session
-      await loadSubPageData();
-    }else if(currentProjectFileId){
-      await switchToLegacy(currentProjectFileId);
-    }else{
-      console.warn('[onDriveConnected] SUB-PAGE: No folder or project ID saved — cannot load data');
+      showConfigStatus('ℹ️ Google ドライブに接続しました。「＋ 新規工事」で工事を作成してください');
     }
   }
 
-  // Save session state for other pages
+  // Save session state for sub-pages
   saveSession();
 }
 
@@ -471,7 +427,6 @@ async function onProjectSelect(){
 }
 
 async function switchToFolder(folderId){
-  console.log('[switchToFolder] start, folderId=',folderId);
   if(driveReady&&(currentFolderId||currentProjectFileId)){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
@@ -480,7 +435,6 @@ async function switchToFolder(folderId){
   currentProjectFileId=null;
   driveFileId=null;
   const configId=await findFileInFolder(folderId, CONFIG_FILE_NAME);
-  console.log('[switchToFolder] configId=',configId);
   if(configId){
     const txt=await readFromDriveById(configId);
     if(txt){try{allData.config=JSON.parse(txt);}catch(e){allData.config={};}}
@@ -491,30 +445,10 @@ async function switchToFolder(folderId){
   if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
   const mk=getMonthKey();
   currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
-  console.log('[switchToFolder] loading month=',currentMonth);
   await loadMonthData(currentMonth);
-  console.log('[switchToFolder] entries loaded, keys=',Object.keys(allData.entries));
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
   showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');
-}
-
-// Lightweight data load for sub-pages (config already in session)
-async function loadSubPageData(){
-  console.log('[loadSubPageData] start, config already restored from session');
-  // Apply config to UI
-  const pnEl=document.getElementById('projectName')||document.getElementById('kyProjectName')||document.getElementById('nippoProjectName');
-  if(pnEl) pnEl.textContent=allData.config.projectName||'';
-  const creatorEl=document.getElementById('creator');
-  if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
-  // Determine month
-  const mk=getMonthKey();
-  currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
-  console.log('[loadSubPageData] loading month=',currentMonth);
-  // Load month data (only 1 API call: findFileInFolder + readFromDriveById)
-  await loadMonthData(currentMonth);
-  console.log('[loadSubPageData] entries loaded, keys=',Object.keys(allData.entries));
-  driveReady=true;
 }
 
 async function switchToLegacy(fileId){
@@ -1389,7 +1323,9 @@ function waitForGis(maxWait){
 }
 
 async function initCommon(){
-  // 1) Try restoring session from sessionStorage
+  const isHomePage=!!document.getElementById('projectSelect');
+
+  // 1) Restore session from sessionStorage
   const savedToken=sessionStorage.getItem('driveAccessToken');
   if(savedToken){
     driveAccessToken=savedToken;
@@ -1398,47 +1334,85 @@ async function initCommon(){
     currentMonth=sessionStorage.getItem('currentMonth')||'';
     masterFileId=sessionStorage.getItem('masterFileId')||null;
     currentMonthFileId=sessionStorage.getItem('currentMonthFileId')||null;
-    try{
-      const savedProjects=sessionStorage.getItem('projectList');
-      if(savedProjects) projectList=JSON.parse(savedProjects);
-    }catch(e){}
-    try{
-      const savedConfig=sessionStorage.getItem('allDataConfig');
-      if(savedConfig) allData.config=JSON.parse(savedConfig);
-    }catch(e){}
+    try{ const s=sessionStorage.getItem('projectList'); if(s) projectList=JSON.parse(s); }catch(e){}
+    try{ const s=sessionStorage.getItem('allDataConfig'); if(s) allData.config=JSON.parse(s); }catch(e){}
+    try{ const s=sessionStorage.getItem('allDataEntries'); if(s) allData.entries=JSON.parse(s); }catch(e){}
+    try{ const s=sessionStorage.getItem('masterDataCache'); if(s){
+      masterData=JSON.parse(s);
+      if(masterData.hazards&&masterData.hazards.length>0)M["危険要因"]=[...masterData.hazards];
+      if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
+      if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
+      if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
+      if(!masterData.workers)masterData.workers=[];
+      if(!masterData.workCategories)masterData.workCategories=[];
+    }}catch(e){}
   }
 
-  // 2) Wait for GAPI and GIS in PARALLEL (max 10 seconds each)
+  // 2) SUB-PAGE FAST PATH: show UI instantly from cache, then connect in background
+  if(!isHomePage && savedToken && (currentFolderId||currentProjectFileId)){
+    // Apply cached master data to UI selects
+    refreshAllHazardSelects();
+    refreshCreatorSelect();
+    // Mark as ready so onPageReady can display data
+    driveReady=true;
+    // Show UI immediately
+    if(typeof onPageReady==='function') onPageReady();
+    // Connect to Drive API in background (for auto-save)
+    connectDriveBackground();
+    return;
+  }
+
+  // 3) HOME PAGE or FIRST VISIT: full initialization
   const [gapiOk, gisOk] = await Promise.all([
     waitForGapi(10000),
     waitForGis(10000)
   ]);
   if(gapiOk){
     try{ await initGapi(); }catch(e){console.warn('GAPI init failed',e);}
-  }else{
-    console.warn('gapi script did not load within 10s');
-  }
+  }else{ console.warn('gapi did not load within 10s'); }
   if(gisOk){
     try{ initGis(); }catch(e){console.warn('GIS init failed',e);}
-  }else{
-    console.warn('GIS script did not load within 10s');
-  }
+  }else{ console.warn('GIS did not load within 10s'); }
 
-  // 4) If token restored, try to reconnect
+  // 4) If token exists, reconnect to Drive
   if(driveAccessToken&&gapiInited){
     try{
       gapi.client.setToken({access_token:driveAccessToken});
       driveReady=true;
       await onDriveConnected();
     }catch(e){
-      console.warn('Session restore failed, clearing token',e);
+      console.warn('Session restore failed',e);
       driveAccessToken=null;
       sessionStorage.removeItem('driveAccessToken');
     }
   }
 
-  // 5) Call page-specific init if defined
+  // 5) Page-specific init
   if(typeof onPageReady==='function') onPageReady();
+}
+
+// Background Drive connection for sub-pages (non-blocking)
+// Only establishes API connection for auto-save. Data is already loaded from cache.
+async function connectDriveBackground(){
+  try{
+    const [gapiOk, gisOk] = await Promise.all([
+      waitForGapi(10000),
+      waitForGis(10000)
+    ]);
+    if(gapiOk){ await initGapi(); }
+    if(gisOk){ initGis(); }
+    if(driveAccessToken&&gapiInited){
+      gapi.client.setToken({access_token:driveAccessToken});
+      // Ensure masterFileId and currentMonthFileId are valid for auto-save
+      if(!masterFileId) await findOrCreateMasterFile();
+      if(currentFolderId && !currentMonthFileId){
+        const mk=getMonthKey();
+        const month=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+        const fileId=await findFileInFolder(currentFolderId, month+'.json');
+        if(fileId) currentMonthFileId=fileId;
+      }
+    }
+  }catch(e){ console.warn('Background Drive connect failed:',e); }
 }
 
 // ============ Session save helper ============
@@ -1460,9 +1434,13 @@ function saveSession(){
     if(allData.config&&Object.keys(allData.config).length>0){
       sessionStorage.setItem('allDataConfig', JSON.stringify(allData.config));
     }
-    // Cache master data to avoid re-fetching on sub-pages
+    // Cache master data for sub-pages
     if(masterData&&masterData.workers){
       sessionStorage.setItem('masterDataCache', JSON.stringify(masterData));
+    }
+    // Cache entries data for instant sub-page display
+    if(allData.entries&&Object.keys(allData.entries).length>0){
+      sessionStorage.setItem('allDataEntries', JSON.stringify(allData.entries));
     }
   }catch(e){}
 }

@@ -847,6 +847,9 @@ function onPageReady(){
 }
 
 window.addEventListener('DOMContentLoaded', async ()=>{
+  // Set date immediately (no API needed)
+  const wd=document.getElementById('workDate');
+  if(wd && !wd.value) wd.value=localDateStr(new Date());
   try{ await initCommon(); }catch(e){ console.error('[Daily_Report] initCommon error:',e); }
 });
 </script>
