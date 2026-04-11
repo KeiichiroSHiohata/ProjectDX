@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建設現場管理システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="common.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#f0f2f5;color:#333;padding:12px}
+.container{max-width:1000px;margin:0 auto}
+h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
+.section{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.section-title{font-size:14px;font-weight:700;color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:5px;margin-bottom:12px}
+.form-row{display:flex;gap:10px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column}
+.fg label{font-size:11px;color:#666;margin-bottom:2px;font-weight:600}
+.fg input,.fg select,.fg textarea{border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:13px;outline:none}
+.fg input:focus,.fg select:focus{border-color:#1a56db}
+.f1{flex:1;min-width:100px}.f2{flex:2;min-width:180px}.f3{flex:3;min-width:260px}
+.w70{width:70px;flex:none}.w90{width:90px;flex:none}.w100{width:100px;flex:none}
+
+.work-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px}
+.work-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.work-label{font-weight:700;font-size:13px;color:#1e40af}
+.hazard-row{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-top:6px}
+.hazard-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hazard-label{font-size:12px;color:#6b7280;font-weight:600}
+
+.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-add{background:#1a56db;color:#fff}.btn-add:hover{background:#1544b5}
+.btn-add-sm{background:#10b981;color:#fff;font-size:11px;padding:4px 10px}.btn-add-sm:hover{background:#059669}
+.btn-del{background:#ef4444;color:#fff;font-size:11px;padding:4px 8px}.btn-del:hover{background:#dc2626}
+.btn-center{display:block;margin:8px auto 0}
+
+.score{background:#eef2ff;border-radius:5px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;min-width:60px;line-height:1.4}
+.rank-A{background:#fee2e2;color:#991b1b}.rank-B{background:#fef3c7;color:#92400e}
+.rank-C{background:#d1fae5;color:#065f46}.rank-D{background:#dbeafe;color:#1e40af}
+
+.chk-grid{display:grid;grid-template-columns:120px 1fr 1fr;gap:4px;align-items:center}
+.chk-grid .hd{font-weight:700;font-size:12px;text-align:center;color:#1a56db;padding:4px}
+.chk-grid .il{font-size:12px;padding:4px 0}
+.chk-grid .cc{text-align:center}
+.chk-grid input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#1a56db}
+
+.sig-grid{display:flex;flex-wrap:wrap;gap:8px}
+.sig-card{border:1px solid #d1d5db;border-radius:8px;overflow:hidden;width:110px;background:#fff;cursor:pointer;transition:box-shadow 0.2s}
+.sig-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.sig-card .sc-name{padding:4px 6px;background:#f3f4f6;font-size:10px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sig-card .sc-preview{width:110px;height:140px;display:flex;align-items:center;justify-content:center;background:#fff;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;position:relative}
+.sig-card .sc-preview img{max-width:100%;max-height:100%;object-fit:contain}
+.sig-card .sc-preview .sc-placeholder{color:#d1d5db;font-size:28px}
+.sig-card .sc-status{font-size:9px;text-align:center;padding:2px;color:#059669;font-weight:600}
+.sig-card .sc-status.unsigned{color:#9ca3af}
+.sig-card .sc-health{display:flex;justify-content:center;padding:2px 4px;background:#f9fafb}
+.sig-card .sc-health select{font-size:10px;border:1px solid #ddd;border-radius:3px;padding:1px 3px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal-box{background:#fff;border-radius:16px;width:90vw;max-width:420px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1a56db;color:#fff}
+.modal-header .modal-title{font-size:16px;font-weight:700}
+.modal-header button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-canvas-wrap{padding:12px;display:flex;justify-content:center;background:#f9fafb}
+.modal-canvas-wrap canvas{border:2px solid #d1d5db;border-radius:8px;background:#fff;touch-action:none}
+.modal-actions{display:flex;gap:8px;padding:10px 16px;justify-content:space-between;background:#f9fafb;border-top:1px solid #e5e7eb}
+.modal-actions .mbtn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;flex:1;text-align:center}
+.mbtn-clear{background:#f3f4f6;color:#374151}.mbtn-clear:hover{background:#e5e7eb}
+.mbtn-ok{background:#059669;color:#fff}.mbtn-ok:hover{background:#047857}
+
+.sig-count{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sig-count label{font-size:12px;font-weight:600}
+.sig-count input{width:50px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-size:13px}
+
+.submit-btn{background:#059669;color:#fff;border:none;border-radius:8px;padding:14px 40px;cursor:pointer;font-size:16px;font-weight:700;display:block;margin:16px auto 0}
+.submit-btn:hover{background:#047857}
+.submit-btn:disabled{background:#9ca3af;cursor:not-allowed}
+.status-msg{text-align:center;margin-top:10px;font-size:14px;font-weight:600}
+.status-msg.ok{color:#059669}.status-msg.err{color:#ef4444}.status-msg.loading{color:#1a56db}
+.note{font-size:11px;color:#9ca3af;margin-top:4px;text-align:center}
+.template-info{background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px}
+.nbtn{border:1px solid #d1d5db;background:#f9fafb;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:16px;line-height:1;color:#1a56db;font-weight:700;min-width:36px;text-align:center;position:relative;z-index:2}
+.nbtn:hover{background:#dbeafe;border-color:#1a56db}
+.nbtn:active{background:#1a56db;color:#fff}
+.template-info .icon{font-size:18px}
+.auto-tag{display:inline-block;background:#dbeafe;color:#1e40af;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:700;vertical-align:middle}
+
+/* 設定・データ保存ボタン */
+.config-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cbtn{border:none;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.cbtn-save{background:#1a56db;color:#fff}.cbtn-save:hover{background:#1544b5}
+.cbtn-load{background:#6366f1;color:#fff}.cbtn-load:hover{background:#4f46e5}
+.cbtn-data-save{background:#059669;color:#fff}.cbtn-data-save:hover{background:#047857}
+.cbtn-data-load{background:#0891b2;color:#fff}.cbtn-data-load:hover{background:#0e7490}
+.config-bar .sep{border-left:1px solid #d1d5db;margin:0 2px;height:24px}
+.config-status{font-size:11px;color:#059669;margin-top:4px;text-align:center;min-height:16px}
+@media(max-width:768px){.desktop-only{display:none!important}}
+
+/* Home screen */
+.home-hero{text-align:center;padding:20px 0 8px}
+.home-hero h1{font-size:22px;color:#1a56db;margin-bottom:2px}
+.home-hero p{font-size:12px;color:#6b7280}
+.nav-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+.nav-card{background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:28px 12px;text-align:center;cursor:pointer;transition:all 0.2s;user-select:none}
+.nav-card:hover{border-color:#1a56db;box-shadow:0 4px 16px rgba(26,86,219,0.15);transform:translateY(-2px)}
+.nav-card:active{transform:translateY(0)}
+.nav-card .nav-icon{font-size:44px;margin-bottom:8px}
+.nav-card .nav-label{font-size:18px;font-weight:700;color:#1e40af}
+.nav-card .nav-desc{font-size:11px;color:#6b7280;margin-top:4px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== ホーム画面 ===== -->
+<div id="screenHome">
+  <div class="home-hero">
+    <h1>建設現場管理システム</h1>
+    <p>KY活動表・作業日報を管理</p>
+  </div>
+
+  <!-- Google ドライブ接続 -->
+  <div class="section">
+    <div class="section-title">Google ドライブ接続 <span id="dataModeLabel" style="font-size:10px;color:#6b7280;font-weight:400">（自動保存）</span></div>
+    <div id="driveStatus" style="background:#eef2ff;border:1px solid #6366f1;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#3730a3;line-height:1.5">
+      🔐 Google ドライブに接続するには「ログイン」ボタンを押してください
+    </div>
+    <div class="config-bar">
+      <button class="cbtn cbtn-load" id="btnDriveLogin" onclick="handleDriveLogin()">🔐 ログイン</button>
+      <button class="cbtn" style="background:#8b5cf6;color:#fff" onclick="openMasterEditor()">⚙ マスタ編集</button>
+      <button class="cbtn desktop-only" style="background:#0891b2;color:#fff" onclick="downloadMasterExcel()">📥 マスタDL</button>
+      <button class="cbtn desktop-only" style="background:#059669;color:#fff" onclick="document.getElementById('masterUploadInput').click()">📤 マスタ取込</button>
+      <input type="file" id="masterUploadInput" accept=".xlsx,.xls" style="display:none" onchange="uploadMasterExcel(this)">
+    </div>
+    <div class="config-status" id="configStatus"></div>
+  </div>
+
+  <!-- 現場選択 -->
+  <div class="section" id="projectSection">
+    <div class="section-title">現場選択</div>
+    <div class="form-row" style="align-items:center">
+      <div class="fg f3">
+        <label>工事名</label>
+        <select id="projectSelect" onchange="onProjectSelect()" style="font-size:14px;padding:8px;border:2px solid #1a56db;border-radius:6px">
+          <option value="">-- ログインしてください --</option>
+        </select>
+      </div>
+      <button class="btn btn-add" onclick="createNewProject()">＋ 新規工事</button>
+      <button class="btn btn-del" onclick="deleteCurrentProject()">🗑 削除</button>
+    </div>
+    <span id="projectName" style="display:none"></span>
+  </div>
+
+  <!-- ナビゲーションカード -->
+  <div class="nav-cards">
+    <div class="nav-card" onclick="navigateTo('Hazard_Assessment.html')">
+      <div class="nav-icon">📋</div>
+      <div class="nav-label">KY活動表</div>
+      <div class="nav-desc">危険予知活動<br>リスク評価・署名</div>
+    </div>
+    <div class="nav-card" onclick="navigateTo('Daily_Report.html')">
+      <div class="nav-icon">📝</div>
+      <div class="nav-label">作業日報</div>
+      <div class="nav-desc">実施作業・従事者<br>搬入材料・環境対策</div>
+    </div>
+  </div>
+
+  <!-- データ一覧セクション -->
+  <div class="section" id="dataOverview" style="display:none">
+    <div class="section-title">入力データ一覧</div>
+    <div id="dataList" style="max-height:300px;overflow-y:auto;font-size:12px"></div>
+  </div>
+</div>
+
+<!-- 隠しフィールド: common.js互換性用 -->
+<input type="hidden" id="workDate">
+<select id="creator" style="display:none"></select>
+
+<!-- マスタ編集モーダル -->
+<div class="modal-overlay" id="masterModal">
+  <div class="modal-box" style="max-width:900px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <span class="modal-title">⚙ マスタデータ編集</span>
+      <button onclick="closeMasterEditor()">&times;</button>
+    </div>
+    <div style="padding:10px 16px;background:#f9fafb;display:flex;gap:6px;border-bottom:1px solid #e5e7eb">
+      <button class="btn btn-add-sm" onclick="showMasterTab('worker')" id="mtab_worker" style="background:#6b7280">従事者</button>
+      <button class="btn btn-add-sm" onclick="showMasterTab('workitem')" id="mtab_workitem" style="background:#6b7280">作業</button>
+      <button class="btn btn-add-sm" onclick="showMasterTab('hazard')" id="mtab_hazard" style="background:#1a56db">危険要因</button>
+      <button class="btn btn-add-sm" onclick="showMasterTab('measure')" id="mtab_measure" style="background:#6b7280">安全対策</button>
+      <button class="btn btn-add-sm" onclick="resetMasterDefaults()" style="background:#ef4444;margin-left:auto">初期値に戻す</button>
+    </div>
+    <div style="padding:12px 16px;overflow:auto;flex:1;background:#fff">
+      <div id="mpane_worker" style="display:none">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">従事者の名前と所属会社を管理します。ここで登録した従事者が署名欄と作成者の選択肢に表示されます。</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="workerTable">
+          <thead>
+            <tr style="background:#eef2ff">
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:40%">名前</th>
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:45%">所属会社</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:15%">削除</th>
+            </tr>
+          </thead>
+          <tbody id="workerTbody"></tbody>
+        </table>
+        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addWorkerMasterRow()">＋ 従事者を追加</button>
+      </div>
+      <div id="mpane_workitem" style="display:none">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">工種ごとに作業と紐づく危険要因を登録します。作業ブロックで工種→作業を選ぶと危険要因が自動セットされます。</p>
+        <div id="workItemList"></div>
+        <button class="btn btn-add-sm" style="margin-top:8px;background:#1a56db" onclick="addCategoryMasterBlock()">＋ 工種を追加</button>
+      </div>
+      <div id="mpane_hazard">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">危険要因名・重大性・頻度・デフォルト安全対策を編集できます。新規追加・削除も可能です。</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="hazardTable">
+          <thead>
+            <tr style="background:#eef2ff">
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:38%">危険要因名</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:13%">重大性</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:13%">頻度</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:28%">デフォルト安全対策</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:8%">削除</th>
+            </tr>
+          </thead>
+          <tbody id="hazardTbody"></tbody>
+        </table>
+        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addHazardMasterRow()">＋ 危険要因を追加</button>
+      </div>
+      <div id="mpane_measure" style="display:none">
+        <p style="font-size:11px;color:#6b7280;margin-bottom:8px">安全対策名と、対応する「安全目標」標語を編集できます。</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="measureTable">
+          <thead>
+            <tr style="background:#eef2ff">
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:45%">安全対策名</th>
+              <th style="padding:6px;border:1px solid #d1d5db;text-align:left;width:45%">安全目標標語</th>
+              <th style="padding:6px;border:1px solid #d1d5db;width:10%">削除</th>
+            </tr>
+          </thead>
+          <tbody id="measureTbody"></tbody>
+        </table>
+        <button class="btn btn-add-sm" style="margin-top:8px" onclick="addMeasureMasterRow()">＋ 安全対策を追加</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="align-items:center">
+      <span id="masterAutoIndicator" style="font-size:11px;color:#6b7280;flex:1;text-align:left;padding-left:4px">編集内容は自動保存されます</span>
+      <button class="mbtn mbtn-ok" onclick="closeMasterEditor()" style="flex:none;padding:10px 24px">閉じる</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end container -->
+
+<script>
+// Page-specific initialization
+function onPageReady() {
+  // Update UI based on drive connection
+  updateHomeUI();
+  // Load data overview if connected
+  if(driveReady) loadDataOverview();
+}
+
+function updateHomeUI() {
+  const st = document.getElementById('driveStatus');
+  const btn = document.getElementById('btnDriveLogin');
+  if(driveReady && st) {
+    st.textContent = '✅ Google ドライブ接続済み — ' + (document.getElementById('projectName')?.textContent || '');
+    st.style.background = '#d1fae5';
+    st.style.borderColor = '#059669';
+    st.style.color = '#065f46';
+    if(btn) btn.style.display = 'none';
+  }
+}
+
+function loadDataOverview() {
+  const container = document.getElementById('dataList');
+  const section = document.getElementById('dataOverview');
+  if(!container || !section) return;
+
+  const entries = allData.entries || {};
+  const keys = Object.keys(entries).sort().reverse();
+  if(keys.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  let html = '<table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="background:#eef2ff"><th style="padding:6px;border:1px solid #d1d5db;text-align:left">日付</th><th style="padding:6px;border:1px solid #d1d5db">KY活動</th><th style="padding:6px;border:1px solid #d1d5db">作業日報</th></tr>';
+
+  for(const key of keys.slice(0, 30)) {
+    const entry = entries[key];
+    const hasKY = entry.work && entry.work.length > 0;
+    const hasNippo = entry.nippo && entry.nippo.work && entry.nippo.work.length > 0;
+    html += '<tr>';
+    html += '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-size:12px">' + key + '</td>';
+    html += '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center">' + (hasKY ? '✅' : '—') + '</td>';
+    html += '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center">' + (hasNippo ? '✅' : '—') + '</td>';
+    html += '</tr>';
+  }
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function navigateTo(page) {
+  window.location.href = page;
+}
+
+// Initialize
+window.addEventListener('DOMContentLoaded', () => {
+  initCommon();
+  onPageReady();
+});
+</script>
+</body>
+</html>

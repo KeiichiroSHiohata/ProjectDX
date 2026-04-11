@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作業日報 - 建設現場管理システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="common.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#f0f2f5;color:#333;padding:12px}
+.container{max-width:1000px;margin:0 auto}
+h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
+.section{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.section-title{font-size:14px;font-weight:700;color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:5px;margin-bottom:12px}
+.form-row{display:flex;gap:10px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column}
+.fg label{font-size:11px;color:#666;margin-bottom:2px;font-weight:600}
+.fg input,.fg select,.fg textarea{border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:13px;outline:none}
+.fg input:focus,.fg select:focus{border-color:#1a56db}
+.f1{flex:1;min-width:100px}.f2{flex:2;min-width:180px}.f3{flex:3;min-width:260px}
+.w70{width:70px;flex:none}.w90{width:90px;flex:none}.w100{width:100px;flex:none}
+
+.work-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px}
+.work-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.work-label{font-weight:700;font-size:13px;color:#1e40af}
+.hazard-row{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-top:6px}
+.hazard-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hazard-label{font-size:12px;color:#6b7280;font-weight:600}
+
+.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-add{background:#1a56db;color:#fff}.btn-add:hover{background:#1544b5}
+.btn-add-sm{background:#10b981;color:#fff;font-size:11px;padding:4px 10px}.btn-add-sm:hover{background:#059669}
+.btn-del{background:#ef4444;color:#fff;font-size:11px;padding:4px 8px}.btn-del:hover{background:#dc2626}
+.btn-center{display:block;margin:8px auto 0}
+
+.score{background:#eef2ff;border-radius:5px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;min-width:60px;line-height:1.4}
+.rank-A{background:#fee2e2;color:#991b1b}.rank-B{background:#fef3c7;color:#92400e}
+.rank-C{background:#d1fae5;color:#065f46}.rank-D{background:#dbeafe;color:#1e40af}
+
+.chk-grid{display:grid;grid-template-columns:120px 1fr 1fr;gap:4px;align-items:center}
+.chk-grid .hd{font-weight:700;font-size:12px;text-align:center;color:#1a56db;padding:4px}
+.chk-grid .il{font-size:12px;padding:4px 0}
+.chk-grid .cc{text-align:center}
+.chk-grid input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#1a56db}
+
+.sig-grid{display:flex;flex-wrap:wrap;gap:8px}
+.sig-card{border:1px solid #d1d5db;border-radius:8px;overflow:hidden;width:110px;background:#fff;cursor:pointer;transition:box-shadow 0.2s}
+.sig-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.sig-card .sc-name{padding:4px 6px;background:#f3f4f6;font-size:10px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sig-card .sc-preview{width:110px;height:140px;display:flex;align-items:center;justify-content:center;background:#fff;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;position:relative}
+.sig-card .sc-preview img{max-width:100%;max-height:100%;object-fit:contain}
+.sig-card .sc-preview .sc-placeholder{color:#d1d5db;font-size:28px}
+.sig-card .sc-status{font-size:9px;text-align:center;padding:2px;color:#059669;font-weight:600}
+.sig-card .sc-status.unsigned{color:#9ca3af}
+.sig-card .sc-health{display:flex;justify-content:center;padding:2px 4px;background:#f9fafb}
+.sig-card .sc-health select{font-size:10px;border:1px solid #ddd;border-radius:3px;padding:1px 3px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal-box{background:#fff;border-radius:16px;width:90vw;max-width:420px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1a56db;color:#fff}
+.modal-header .modal-title{font-size:16px;font-weight:700}
+.modal-header button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-canvas-wrap{padding:12px;display:flex;justify-content:center;background:#f9fafb}
+.modal-canvas-wrap canvas{border:2px solid #d1d5db;border-radius:8px;background:#fff;touch-action:none}
+.modal-actions{display:flex;gap:8px;padding:10px 16px;justify-content:space-between;background:#f9fafb;border-top:1px solid #e5e7eb}
+.modal-actions .mbtn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;flex:1;text-align:center}
+.mbtn-clear{background:#f3f4f6;color:#374151}.mbtn-clear:hover{background:#e5e7eb}
+.mbtn-ok{background:#059669;color:#fff}.mbtn-ok:hover{background:#047857}
+
+.sig-count{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sig-count label{font-size:12px;font-weight:600}
+.sig-count input{width:50px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-size:13px}
+
+.submit-btn{background:#059669;color:#fff;border:none;border-radius:8px;padding:14px 40px;cursor:pointer;font-size:16px;font-weight:700;display:block;margin:16px auto 0}
+.submit-btn:hover{background:#047857}
+.submit-btn:disabled{background:#9ca3af;cursor:not-allowed}
+.status-msg{text-align:center;margin-top:10px;font-size:14px;font-weight:600}
+.status-msg.ok{color:#059669}.status-msg.err{color:#ef4444}.status-msg.loading{color:#1a56db}
+.note{font-size:11px;color:#9ca3af;margin-top:4px;text-align:center}
+.template-info{background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px}
+.nbtn{border:1px solid #d1d5db;background:#f9fafb;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:16px;line-height:1;color:#1a56db;font-weight:700;min-width:36px;text-align:center;position:relative;z-index:2}
+.nbtn:hover{background:#dbeafe;border-color:#1a56db}
+.nbtn:active{background:#1a56db;color:#fff}
+.template-info .icon{font-size:18px}
+.auto-tag{display:inline-block;background:#dbeafe;color:#1e40af;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:700;vertical-align:middle}
+
+/* 設定・データ保存ボタン */
+.config-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cbtn{border:none;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.cbtn-save{background:#1a56db;color:#fff}.cbtn-save:hover{background:#1544b5}
+.cbtn-load{background:#6366f1;color:#fff}.cbtn-load:hover{background:#4f46e5}
+.cbtn-data-save{background:#059669;color:#fff}.cbtn-data-save:hover{background:#047857}
+.cbtn-data-load{background:#0891b2;color:#fff}.cbtn-data-load:hover{background:#0e7490}
+.config-bar .sep{border-left:1px solid #d1d5db;margin:0 2px;height:24px}
+.config-status{font-size:11px;color:#059669;margin-top:4px;text-align:center;min-height:16px}
+@media(max-width:768px){.desktop-only{display:none!important}}
+
+/* Screen system */
+.screen{display:none}.screen.active{display:block}
+
+/* Screen header bar */
+.screen-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.back-btn{background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:inline-flex;align-items:center;gap:4px}
+.back-btn:hover{background:#e5e7eb}
+.screen-title{font-size:18px;font-weight:700;color:#1a56db}
+.compact-bar{background:#fff;border-radius:10px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.compact-bar .cb-project{font-weight:700;color:#1e40af;font-size:14px}
+.compact-bar .cb-date{display:flex;align-items:center;gap:6px;margin-left:auto}
+.compact-bar .cb-date-text{font-weight:600;font-size:14px;min-width:100px;text-align:center}
+
+/* Nippo form */
+.nippo-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative}
+.nippo-block .nb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.nippo-block .nb-label{font-weight:700;font-size:12px;color:#1e40af}
+.nippo-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.env-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.env-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;cursor:pointer;user-select:none}
+.env-item:hover{background:#eef2ff}
+.env-item input[type=checkbox]{width:18px;height:18px;accent-color:#059669;cursor:pointer}
+.env-item label{cursor:pointer}
+.complaint-block{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:8px}
+.complaint-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.complaint-cats{display:flex;gap:10px;flex-wrap:wrap}
+.complaint-cats label{font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer}
+.complaint-cats input{accent-color:#1a56db}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== 作業日報画面 ===== -->
+<div class="screen active">
+  <div class="screen-bar">
+    <button class="back-btn" onclick="navigateTo('index.html')">← ホーム</button>
+    <span class="screen-title">📝 作業日報</span>
+  </div>
+  <div class="compact-bar" id="nippoBar">
+    <span class="cb-project" id="nippoProjectName"></span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="nbtn" onclick="shiftDate(-1)">◀</button>
+      <input type="date" id="workDate" onchange="onDateChange()" style="width:140px;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:13px">
+      <button class="nbtn" onclick="shiftDate(1)">▶</button>
+    </div>
+    <div class="fg" style="min-width:90px">
+      <label style="font-size:10px;color:#666">作成者</label>
+      <select id="creator" onchange="autoSaveNippo()" style="min-width:90px;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:13px"></select>
+    </div>
+    <button class="btn btn-add-sm" style="background:#8b5cf6" onclick="copyPrevDayNippo()" title="前日コピー">📋 前日コピー</button>
+    <button class="cbtn cbtn-data-load" onclick="clearNippoForm()">🗑 クリア</button>
+  </div>
+
+  <!-- 実施作業 -->
+  <div class="section">
+    <div class="section-title">実施作業（最大9件）</div>
+    <div id="nippoWorkBlocks"></div>
+    <button class="btn btn-add btn-center" onclick="addNippoWork()">＋ 作業を追加</button>
+  </div>
+
+  <!-- 作業従事者 -->
+  <div class="section">
+    <div class="section-title">作業従事者（最大9名）</div>
+    <div id="nippoWorkers"></div>
+    <button class="btn btn-add btn-center" onclick="addNippoWorker()">＋ 従事者を追加</button>
+  </div>
+
+  <!-- 搬入材料 -->
+  <div class="section">
+    <div class="section-title">搬入材料</div>
+    <div id="nippoMaterials"></div>
+    <button class="btn btn-add btn-center" onclick="addNippoMaterial()">＋ 材料を追加</button>
+  </div>
+
+  <!-- 指摘・要望・苦情等 -->
+  <div class="section">
+    <div class="section-title">指摘・要望・苦情等（最大4件）</div>
+    <div id="nippoComplaints"></div>
+    <button class="btn btn-add btn-center" onclick="addNippoComplaint()">＋ 追加</button>
+  </div>
+
+  <!-- 環境負荷低減策 -->
+  <div class="section">
+    <div class="section-title">環境負荷低減策</div>
+    <div class="env-grid" id="nippoEnv">
+      <div class="env-item"><input type="checkbox" id="env1" onchange="autoSaveNippo()"><label for="env1">1. 作業中・後の清掃</label></div>
+      <div class="env-item"><input type="checkbox" id="env2" onchange="autoSaveNippo()"><label for="env2">2. お知らせの配布</label></div>
+      <div class="env-item"><input type="checkbox" id="env3" onchange="autoSaveNippo()"><label for="env3">3. 塩化カルシウムの散布</label></div>
+      <div class="env-item"><input type="checkbox" id="env4" onchange="autoSaveNippo()"><label for="env4">4. 散水</label></div>
+      <div class="env-item"><input type="checkbox" id="env5" onchange="autoSaveNippo()"><label for="env5">5. 飛散防止ネットの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env6" onchange="autoSaveNippo()"><label for="env6">6. 周辺構造物の養生</label></div>
+      <div class="env-item"><input type="checkbox" id="env7" onchange="autoSaveNippo()"><label for="env7">7. 沈殿槽の設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env8" onchange="autoSaveNippo()"><label for="env8">8. 汚濁防止フェンスの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env9" onchange="autoSaveNippo()"><label for="env9">9. 防音ネットの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env10" onchange="autoSaveNippo()"><label for="env10">10. 足場養生シートの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env11" onchange="autoSaveNippo()"><label for="env11">11. 法面養生シートの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env12" onchange="autoSaveNippo()"><label for="env12">12. 仮排水の設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env13" onchange="autoSaveNippo()"><label for="env13">13. 防塵ネットの設置</label></div>
+      <div class="env-item"><input type="checkbox" id="env14" onchange="autoSaveNippo()"><label for="env14">14. 河川・道路の清掃活動</label></div>
+    </div>
+  </div>
+
+  <button class="submit-btn" onclick="exportNippoExcel()">📥 作業日報 Excel出力</button>
+  <div style="text-align:right;margin-top:4px"><a href="#" style="font-size:11px;color:#999" onclick="event.preventDefault();if(confirm('テンプレートキャッシュをクリアしますか？次回出力時にファイル選択が必要になります。')){localStorage.removeItem('NIPPO_TMPL_B64');_nippoTmplCache=null;alert('クリアしました');}">テンプレート再選択</a></div>
+  <div class="status-msg" id="statusMsgNippo"></div>
+</div><!-- end nippo screen -->
+
+</div><!-- end container -->
+
+<script>
+// ============ 日報フォーム：実施作業 ============
+let nippoWorkId=0;
+
+function buildNippoCatOpts(selectedCat){
+  let html='<option value="">-- 工種 --</option>';
+  (masterData.workCategories||[]).forEach((cat,idx)=>{
+    html+=`<option value="${idx}"${String(idx)===String(selectedCat)?' selected':''}>${cat.category}</option>`;
+  });
+  return html;
+}
+
+function buildNippoWorkOpts(catIdx, selectedName){
+  let html='<option value="">-- 作業を選択 --</option>';
+  const cat=(masterData.workCategories||[])[catIdx];
+  if(cat&&cat.items){
+    cat.items.forEach(it=>{
+      const n=it.name||it;
+      html+=`<option value="${n}"${n===selectedName?' selected':''}>${n}</option>`;
+    });
+  }
+  return html;
+}
+
+function onNippoCatChange(sel){
+  const block=sel.closest('.nippo-block');
+  const workSel=block.querySelector('.nw-work');
+  const catIdx=parseInt(sel.value);
+  if(isNaN(catIdx)){
+    workSel.innerHTML='<option value="">-- 工種を先に選択 --</option>';
+    return;
+  }
+  workSel.innerHTML=buildNippoWorkOpts(catIdx,'');
+}
+
+function onNippoWorkSelect(sel){
+  const block=sel.closest('.nippo-block');
+  const nameInput=block.querySelector('.nw-name');
+  if(sel.value) nameInput.value=sel.value;
+  autoSaveNippo();
+}
+
+function addNippoWork(data){
+  const max=9;
+  if(document.querySelectorAll('#nippoWorkBlocks .nippo-block').length>=max){
+    alert('最大'+max+'件です');return;
+  }
+  const id=nippoWorkId++;
+  const div=document.createElement('div');
+  div.className='nippo-block';
+  div.id='nw_'+id;
+  const units=(masterData.units||['式','m','m2','m3','基','個','箇所','枚','組','t','kg','km']).map(u=>`<option value="${u}"${data&&data.unit===u?' selected':''}>${u}</option>`).join('');
+
+  // 復元時に工種・作業を逆引き
+  let restoreCatIdx='';
+  if(data&&data.name){
+    (masterData.workCategories||[]).forEach((cat,idx)=>{
+      if(cat.items&&cat.items.some(it=>(it.name||it)===data.name)) restoreCatIdx=String(idx);
+    });
+  }
+
+  const catOpts=buildNippoCatOpts(restoreCatIdx);
+  const workOpts=restoreCatIdx!==''?buildNippoWorkOpts(parseInt(restoreCatIdx),data&&data.name||''):'<option value="">-- 工種を先に選択 --</option>';
+
+  div.innerHTML=`
+    <div class="nb-header">
+      <span class="nb-label">作業 #${document.querySelectorAll('#nippoWorkBlocks .nippo-block').length+1}</span>
+      <button class="btn btn-del" onclick="this.closest('.nippo-block').remove();autoSaveNippo()">✕</button>
+    </div>
+    <div class="nippo-row" style="margin-bottom:4px">
+      <div class="fg f1"><label>工種</label><select class="nw-cat" onchange="onNippoCatChange(this)" style="background:#fffbeb;border-color:#f59e0b">${catOpts}</select></div>
+      <div class="fg f2"><label>作業</label><select class="nw-work" onchange="onNippoWorkSelect(this)" style="background:#fffbeb;border-color:#f59e0b">${workOpts}</select></div>
+    </div>
+    <div class="nippo-row">
+      <div class="fg f3"><label>作業内容（直接入力も可）</label><input type="text" class="nw-name" value="${data&&data.name||''}" onchange="autoSaveNippo()"></div>
+      <div class="fg w90"><label>数量</label><input type="number" class="nw-qty" step="0.1" value="${data&&data.qty||''}" onchange="autoSaveNippo()"></div>
+      <div class="fg w90"><label>単位</label><select class="nw-unit" onchange="autoSaveNippo()">${units}</select></div>
+    </div>`;
+  document.getElementById('nippoWorkBlocks').appendChild(div);
+}
+
+// ============ 日報フォーム：作業従事者 ============
+let nippoWorkerIdC=0;
+function getNippoCompanyList(){
+  const set=new Set();
+  if(masterData.workers) masterData.workers.forEach(w=>{if(w.company)set.add(w.company);});
+  return [...set].sort();
+}
+
+function filterWorkersByCompany(companyVal){
+  if(!masterData.workers) return [];
+  if(!companyVal) return masterData.workers;
+  return masterData.workers.filter(w=>w.company===companyVal);
+}
+
+function updateNippoNameOpts(block, selectedName){
+  const compSel=block.querySelector('.nwk-company');
+  const nameSel=block.querySelector('.nwk-name');
+  const company=compSel.value;
+  const workers=filterWorkersByCompany(company);
+  let html='<option value="">-- 氏名を選択 --</option>';
+  workers.forEach(w=>{
+    html+=`<option value="${w.name}"${w.name===selectedName?' selected':''}>${w.name}</option>`;
+  });
+  nameSel.innerHTML=html;
+}
+
+function addNippoWorker(data){
+  const max=9;
+  if(document.querySelectorAll('#nippoWorkers .nippo-block').length>=max){
+    alert('最大'+max+'名です');return;
+  }
+  const id=nippoWorkerIdC++;
+  const div=document.createElement('div');
+  div.className='nippo-block';
+  div.id='nwk_'+id;
+
+  // 所属リスト
+  const companies=getNippoCompanyList();
+  let compOpts='<option value="">-- 全員表示 --</option>';
+  companies.forEach(c=>{
+    compOpts+=`<option value="${c}"${data&&data.company===c?' selected':''}>${c}</option>`;
+  });
+
+  div.innerHTML=`
+    <div class="nb-header">
+      <span class="nb-label">従事者 #${document.querySelectorAll('#nippoWorkers .nippo-block').length+1}</span>
+      <button class="btn btn-del" onclick="this.closest('.nippo-block').remove();autoSaveNippo()">✕</button>
+    </div>
+    <div class="nippo-row">
+      <div class="fg f1"><label>所属</label><select class="nwk-company" onchange="updateNippoNameOpts(this.closest('.nippo-block'));autoSaveNippo()">${compOpts}</select></div>
+      <div class="fg f2"><label>氏名</label><select class="nwk-name" onchange="autoSaveNippo()"><option value="">-- 氏名を選択 --</option></select></div>
+      <div class="fg w90"><label>開始</label><input type="time" class="nwk-start" value="${data&&data.start||'08:00'}" onchange="autoSaveNippo()"></div>
+      <div class="fg w90"><label>終了</label><input type="time" class="nwk-end" value="${data&&data.end||'17:00'}" onchange="autoSaveNippo()"></div>
+    </div>`;
+
+  // 氏名プルダウンを初期設定
+  updateNippoNameOpts(div, data&&data.name||'');
+
+  document.getElementById('nippoWorkers').appendChild(div);
+}
+
+// ============ 日報フォーム：搬入材料 ============
+let nippoMatIdC=0;
+function addNippoMaterial(data){
+  const id=nippoMatIdC++;
+  const div=document.createElement('div');
+  div.className='nippo-block';
+  div.id='nm_'+id;
+  div.innerHTML=`
+    <div class="nb-header">
+      <span class="nb-label">材料 #${document.querySelectorAll('#nippoMaterials .nippo-block').length+1}</span>
+      <button class="btn btn-del" onclick="this.closest('.nippo-block').remove();autoSaveNippo()">✕</button>
+    </div>
+    <div class="nippo-row">
+      <div class="fg f2"><label>名称</label><input type="text" class="nm-name" value="${data&&data.name||''}" onchange="autoSaveNippo()" list="matNameList"></div>
+      <div class="fg f1"><label>規格</label><input type="text" class="nm-spec" value="${data&&data.spec||''}" onchange="autoSaveNippo()" list="matSpecList"></div>
+      <div class="fg w90"><label>数量</label><input type="number" class="nm-qty" step="0.1" value="${data&&data.qty||''}" onchange="autoSaveNippo()"></div>
+    </div>`;
+  document.getElementById('nippoMaterials').appendChild(div);
+}
+
+// ============ 日報フォーム：指摘・要望・苦情等 ============
+let nippoComplIdC=0;
+function addNippoComplaint(data){
+  const max=4;
+  if(document.querySelectorAll('#nippoComplaints .complaint-block').length>=max){
+    alert('最大'+max+'件です');return;
+  }
+  const id=nippoComplIdC++;
+  const div=document.createElement('div');
+  div.className='complaint-block';
+  div.id='nc_'+id;
+  const cats=['安全','品質','環境','その他'];
+  const catHtml=cats.map(c=>`<label><input type="radio" name="ncCat${id}" value="${c}" ${data&&data.cat===c?'checked':''} onchange="autoSaveNippo()">${c}</label>`).join('');
+  div.innerHTML=`
+    <div class="nb-header" style="margin-bottom:4px">
+      <span class="nb-label" style="color:#374151">指摘 #${document.querySelectorAll('#nippoComplaints .complaint-block').length+1}</span>
+      <button class="btn btn-del" onclick="this.closest('.complaint-block').remove();autoSaveNippo()">✕</button>
+    </div>
+    <div class="fg" style="margin-bottom:6px"><label>内容</label><textarea class="nc-text" rows="2" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:13px" onchange="autoSaveNippo()">${data&&data.text||''}</textarea></div>
+    <div class="complaint-cats">${catHtml}</div>`;
+  document.getElementById('nippoComplaints').appendChild(div);
+}
+
+// ============ 日報：環境負荷 初期化 ============
+function initNippoEnv(){
+  // datalist for work names / materials (from master if available)
+  updateNippoDataLists();
+}
+
+function updateNippoDataLists(){
+  // 作業名データリスト
+  let dlWork=document.getElementById('workNameList');
+  if(!dlWork){dlWork=document.createElement('datalist');dlWork.id='workNameList';document.body.appendChild(dlWork);}
+  dlWork.innerHTML='';
+  if(masterData.workCategories){
+    masterData.workCategories.forEach(cat=>{
+      if(cat.items) cat.items.forEach(it=>{
+        dlWork.innerHTML+=`<option value="${it.name||it}">`;
+      });
+    });
+  }
+  // 資材データリスト
+  let dlMat=document.getElementById('matNameList');
+  if(!dlMat){dlMat=document.createElement('datalist');dlMat.id='matNameList';document.body.appendChild(dlMat);}
+  dlMat.innerHTML='';
+  if(masterData.materials){
+    masterData.materials.forEach(m=>{
+      dlMat.innerHTML+=`<option value="${m.name||m}">`;
+    });
+  }
+  let dlSpec=document.getElementById('matSpecList');
+  if(!dlSpec){dlSpec=document.createElement('datalist');dlSpec.id='matSpecList';document.body.appendChild(dlSpec);}
+  dlSpec.innerHTML='';
+  if(masterData.materialSpecs){
+    masterData.materialSpecs.forEach(s=>{
+      dlSpec.innerHTML+=`<option value="${s}">`;
+    });
+  }
+}
+
+// ============ 日報データ収集・復元 ============
+function collectNippoData(){
+  const work=[];
+  document.querySelectorAll('#nippoWorkBlocks .nippo-block').forEach(bl=>{
+    work.push({
+      name:bl.querySelector('.nw-name').value,
+      qty:bl.querySelector('.nw-qty').value,
+      unit:bl.querySelector('.nw-unit').value
+    });
+  });
+  const workers=[];
+  document.querySelectorAll('#nippoWorkers .nippo-block').forEach(bl=>{
+    workers.push({
+      name:bl.querySelector('.nwk-name').value,
+      start:bl.querySelector('.nwk-start').value,
+      end:bl.querySelector('.nwk-end').value,
+      company:bl.querySelector('.nwk-company').value
+    });
+  });
+  const materials=[];
+  document.querySelectorAll('#nippoMaterials .nippo-block').forEach(bl=>{
+    materials.push({
+      name:bl.querySelector('.nm-name').value,
+      spec:bl.querySelector('.nm-spec').value,
+      qty:bl.querySelector('.nm-qty').value
+    });
+  });
+  const complaints=[];
+  document.querySelectorAll('#nippoComplaints .complaint-block').forEach(bl=>{
+    const checked=bl.querySelector('input[type=radio]:checked');
+    complaints.push({
+      text:bl.querySelector('.nc-text').value,
+      cat:checked?checked.value:''
+    });
+  });
+  const envMeasures=[];
+  for(let i=1;i<=14;i++){
+    const cb=document.getElementById('env'+i);
+    if(cb&&cb.checked) envMeasures.push(i);
+  }
+  return {work,workers,materials,complaints,envMeasures};
+}
+
+function clearNippoForm(){
+  document.getElementById('nippoWorkBlocks').innerHTML='';
+  document.getElementById('nippoWorkers').innerHTML='';
+  document.getElementById('nippoMaterials').innerHTML='';
+  document.getElementById('nippoComplaints').innerHTML='';
+  for(let i=1;i<=14;i++){const cb=document.getElementById('env'+i);if(cb)cb.checked=false;}
+  nippoWorkId=0;nippoWorkerIdC=0;nippoMatIdC=0;nippoComplIdC=0;
+}
+
+function restoreNippoData(){
+  clearNippoForm();
+  const dk=getDateKey();
+  if(!dk) return;
+  const entry=allData.entries[dk];
+  if(!entry||!entry.nippo) return;
+  const n=entry.nippo;
+  if(n.work) n.work.forEach(w=>addNippoWork(w));
+  if(n.workers) n.workers.forEach(w=>addNippoWorker(w));
+  if(n.materials) n.materials.forEach(m=>addNippoMaterial(m));
+  if(n.complaints) n.complaints.forEach(c=>addNippoComplaint(c));
+  if(n.envMeasures) n.envMeasures.forEach(i=>{const cb=document.getElementById('env'+i);if(cb)cb.checked=true;});
+}
+
+// ============ 日報自動保存 ============
+function autoSaveNippo(){
+  if(!driveReady)return;
+  const dk=getDateKey();
+  if(!dk) return;
+  if(!allData.entries[dk]) allData.entries[dk]={};
+  allData.entries[dk].nippo=collectNippoData();
+  allData.config={
+    ...(allData.config||{}),
+    projectName:document.getElementById('nippoProjectName').textContent,
+    creator:document.getElementById('creator').value
+  };
+  scheduleDataFileSave();
+}
+
+async function copyPrevDayNippo(){
+  const dk=getDateKey();
+  if(!dk){alert('日付を選択してください');return;}
+  // 現在月のエントリから直近を探す
+  let found=null;
+  const keys=Object.keys(allData.entries).filter(k=>k<dk).sort().reverse();
+  for(const k of keys){
+    if(allData.entries[k]&&allData.entries[k].nippo){found=allData.entries[k].nippo;break;}
+  }
+  if(!found){alert('コピー元の日報データが見つかりません');return;}
+  clearNippoForm();
+  if(found.work) found.work.forEach(w=>addNippoWork(w));
+  if(found.workers) found.workers.forEach(w=>addNippoWorker(w));
+  if(found.materials) found.materials.forEach(m=>addNippoMaterial(m));
+  // 指摘・環境負荷はコピーしない（日次で変わるため）
+  autoSaveNippo();
+  showConfigStatus('📋 前日の日報データをコピーしました');
+}
+
+// ============ 日報Excel出力 (JSZip+テンプレート) ============
+let _nippoTmplCache=null; // テンプレートキャッシュ（ArrayBuffer）
+
+function pickNippoTemplate(){
+  return new Promise((resolve)=>{
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.xlsx,.xls';
+    inp.style.display='none';
+    inp.onchange=()=>{
+      if(!inp.files||!inp.files[0]){resolve(null);return;}
+      const reader=new FileReader();
+      reader.onload=()=>{resolve(reader.result);};
+      reader.onerror=()=>{resolve(null);};
+      reader.readAsArrayBuffer(inp.files[0]);
+    };
+    // キャンセル対応
+    inp.addEventListener('cancel',()=>resolve(null));
+    document.body.appendChild(inp);
+    inp.click();
+    document.body.removeChild(inp);
+  });
+}
+
+async function exportNippoExcel(){
+  const btn=document.querySelector('.submit-btn');
+  const msg=document.getElementById('statusMsgNippo');
+
+  try{
+    if(btn)btn.disabled=true;
+
+    const data=collectNippoData();
+    const pName=document.getElementById('nippoProjectName').textContent||'';
+    const creator=document.getElementById('creator').value||'';
+    const dateVal=document.getElementById('workDate').value;
+    if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
+
+    // テンプレート取得（メモリキャッシュ → localStorage → ファイル選択）
+    if(!_nippoTmplCache){
+      // 1) localStorageからキャッシュを復元
+      try{
+        const cached=localStorage.getItem('NIPPO_TMPL_B64');
+        if(cached&&cached.length>100){
+          if(msg){msg.textContent='⏳ キャッシュからテンプレート読込中…';msg.className='status-msg loading';}
+          const bin=atob(cached);
+          const buf=new Uint8Array(bin.length);
+          for(let k=0;k<bin.length;k++)buf[k]=bin.charCodeAt(k);
+          _nippoTmplCache=buf.buffer;
+        }
+      }catch(e){console.warn('localStorageキャッシュ読込失敗',e);_nippoTmplCache=null;}
+      // 2) キャッシュが無ければファイル選択（初回のみ）
+      if(!_nippoTmplCache){
+        if(msg){msg.textContent='📂 作業日報テンプレート(.xlsx)を選択してください（初回のみ）';msg.className='status-msg loading';}
+        const ab=await pickNippoTemplate();
+        if(!ab){
+          if(msg){msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';}
+          if(btn)btn.disabled=false;return;
+        }
+        _nippoTmplCache=ab;
+        // localStorageにキャッシュ保存（次回以降はファイル選択不要）
+        try{
+          const arr=new Uint8Array(ab);
+          let binary='';for(let k=0;k<arr.length;k++)binary+=String.fromCharCode(arr[k]);
+          localStorage.setItem('NIPPO_TMPL_B64',btoa(binary));
+          console.log('日報テンプレートをlocalStorageにキャッシュしました');
+        }catch(e){console.warn('localStorageキャッシュ保存失敗',e);}
+      }
+    }
+    const tmplBuf=new Uint8Array(_nippoTmplCache);
+
+    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
+
+    // JSZipでテンプレート解析
+    const zip=await JSZip.loadAsync(tmplBuf);
+    const SP='xl/worksheets/sheet1.xml';
+    const xmlStr=await zip.file(SP).async('string');
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(xmlStr,'application/xml');
+    const ns=doc.documentElement.namespaceURI;
+
+    // --- ヘルパー関数 ---
+    function cRef(r,c){
+      let ref='';
+      let num=c;
+      while(num>0){ref=String.fromCharCode(64+(num%26||26))+(num%26===0&&ref?ref:'');num=Math.floor((num-1)/26);}
+      return ref+r;
+    }
+    function getRow(r){
+      const sd=doc.getElementsByTagNameNS(ns,'sheetData')[0];
+      const rows=sd.getElementsByTagNameNS(ns,'row');
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))===r)return rows[i];}
+      const nr=doc.createElementNS(ns,'row');nr.setAttribute('r',String(r));
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))>r){sd.insertBefore(nr,rows[i]);return nr;}}
+      sd.appendChild(nr);return nr;
+    }
+    function getCell(r,c){
+      const ref=cRef(r,c);
+      const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){if(cells[i].getAttribute('r')===ref)return cells[i];}
+      const nc=doc.createElementNS(ns,'c');nc.setAttribute('r',ref);
+      const cIdx=c;
+      for(let i=0;i<cells.length;i++){
+        const cr=cells[i].getAttribute('r');
+        const ec=cr.replace(/[0-9]/g,'');
+        let ei=0;for(let j=0;j<ec.length;j++)ei=ei*26+(ec.charCodeAt(j)-64);
+        if(ei>cIdx){rowEl.insertBefore(nc,cells[i]);return nc;}
+      }
+      rowEl.appendChild(nc);return nc;
+    }
+    function clearCellContent(cell){
+      while(cell.firstChild)cell.removeChild(cell.firstChild);
+      cell.removeAttribute('t');
+    }
+    function setNum(r,c,val){
+      const cell=getCell(r,c);clearCellContent(cell);
+      const v=doc.createElementNS(ns,'v');v.textContent=String(val);
+      cell.appendChild(v);
+    }
+    function setStr(r,c,text){
+      if(!text){clearVal(r,c);return;}
+      const cell=getCell(r,c);clearCellContent(cell);
+      cell.setAttribute('t','inlineStr');
+      const is=doc.createElementNS(ns,'is');
+      const t=doc.createElementNS(ns,'t');
+      t.textContent=text;is.appendChild(t);cell.appendChild(is);
+    }
+    function clearVal(r,c){
+      const ref=cRef(r,c);const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){
+        if(cells[i].getAttribute('r')===ref){clearCellContent(cells[i]);return;}
+      }
+    }
+
+    // === 基本情報 ===
+    setStr(3,6,pName);        // F3: 工事名
+    setStr(3,59,creator);     // BG3: 作成者
+
+    // 日付 (令和)
+    const dd=new Date(dateVal+'T00:00:00');
+    const era=dd.getFullYear()-2018;
+    const mo=dd.getMonth()+1, da=dd.getDate();
+    const dow=['日','月','火','水','木','金','土'][dd.getDay()];
+    setNum(3,74,era);   // BV3: 令和X年
+    setNum(3,78,mo);    // BZ3: X月
+    setNum(3,82,da);    // CD3: X日
+    setStr(3,86,dow);   // CH3: 曜日
+
+    // === 実施作業 (rows 7,9,11,13,15,17,19,21,23 — 名前C3, 数量C23, 単位C27) ===
+    const nippoWorkRows=[7,9,11,13,15,17,19,21,23];
+    for(let i=0;i<9;i++){
+      const r=nippoWorkRows[i];
+      if(data.work[i]){
+        setStr(r,3,data.work[i].name||'');
+        if(data.work[i].qty){
+          const qn=parseFloat(data.work[i].qty);
+          if(!isNaN(qn))setNum(r,23,qn);else setStr(r,23,data.work[i].qty);
+        }else{clearVal(r,23);}
+        setStr(r,27,data.work[i].unit||'');
+      }else{
+        clearVal(r,3);clearVal(r,23);clearVal(r,27);
+      }
+    }
+
+    // HH:MM → Excel時間小数 変換ヘルパー
+    function timeToExcel(hhmm){
+      if(!hhmm)return null;
+      const p=hhmm.split(':');
+      if(p.length<2)return null;
+      return (parseInt(p[0])+parseInt(p[1])/60)/24;
+    }
+
+    // === 作業従事者 グループ1 (rows 7,9,11,13,15,17,19,21,23 — 名AG33, 開始AO41, 終了AT46, 所属AY51) ===
+    for(let i=0;i<9;i++){
+      const r=nippoWorkRows[i];
+      if(data.workers[i]){
+        setStr(r,33,data.workers[i].name||'');
+        const st=timeToExcel(data.workers[i].start);
+        const en=timeToExcel(data.workers[i].end);
+        if(st!==null)setNum(r,41,st);else clearVal(r,41);
+        if(en!==null)setNum(r,46,en);else clearVal(r,46);
+        setStr(r,51,data.workers[i].company||'');
+      }else{
+        clearVal(r,33);clearVal(r,41);clearVal(r,46);clearVal(r,51);
+      }
+    }
+
+    // === 作業従事者 グループ2 (rows 7,9,11,13,15,17,19,21,23 — 名BJ62, 開始BR70, 終了BW75, 所属CB80) ===
+    for(let i=0;i<9;i++){
+      const r=nippoWorkRows[i];
+      const wi=i+9;
+      if(data.workers[wi]){
+        setStr(r,62,data.workers[wi].name||'');
+        const st=timeToExcel(data.workers[wi].start);
+        const en=timeToExcel(data.workers[wi].end);
+        if(st!==null)setNum(r,70,st);else clearVal(r,70);
+        if(en!==null)setNum(r,75,en);else clearVal(r,75);
+        setStr(r,80,data.workers[wi].company||'');
+      }else{
+        clearVal(r,62);clearVal(r,70);clearVal(r,75);clearVal(r,80);
+      }
+    }
+
+    // === 搬入材料 (rows 27,29,31,33 × 4 column groups) ===
+    const matRows=[27,29,31,33];
+    const matColGroups=[{n:3,s:13,q:21},{n:25,s:35,q:43},{n:47,s:57,q:65},{n:69,s:79,q:87}];
+    for(let ri=0;ri<4;ri++){
+      const r=matRows[ri];
+      for(let ci=0;ci<4;ci++){
+        const idx=ci*4+ri;
+        const cols=matColGroups[ci];
+        if(data.materials[idx]){
+          setStr(r,cols.n,data.materials[idx].name||'');
+          setStr(r,cols.s,data.materials[idx].spec||'');
+          if(data.materials[idx].qty){
+            const qn=parseFloat(data.materials[idx].qty);
+            if(!isNaN(qn))setNum(r,cols.q,qn);else setStr(r,cols.q,data.materials[idx].qty);
+          }else{clearVal(r,cols.q);}
+        }else{
+          clearVal(r,cols.n);clearVal(r,cols.s);clearVal(r,cols.q);
+        }
+      }
+    }
+
+    // === 指摘・要望・苦情等 (rows 37,39,41,43 — text C1, category checkboxes) ===
+    const complRows=[37,39,41,43];
+    const catColMap={安全:71,品質:76,環境:81,その他:86};
+    for(let i=0;i<4;i++){
+      const r=complRows[i];
+      if(data.complaints[i]){
+        setStr(r,1,data.complaints[i].text||'');
+        // カテゴリチェック — 全セルをリセットしてからセット
+        for(const [catName,catCol] of Object.entries(catColMap)) setStr(r,catCol,'□　'+catName);
+        if(data.complaints[i].cat && catColMap[data.complaints[i].cat]!==undefined){
+          setStr(r,catColMap[data.complaints[i].cat],'✓　'+data.complaints[i].cat);
+        }
+      }else{
+        clearVal(r,1);
+        for(const [catName,catCol] of Object.entries(catColMap)) setStr(r,catCol,'□　'+catName);
+      }
+    }
+
+    // === 環境負荷低減策 (checkbox positions) ===
+    const envPositions={
+      1:{r:47,c:17}, 2:{r:49,c:17}, 3:{r:51,c:17}, 4:{r:53,c:17}, 5:{r:55,c:17}, 6:{r:57,c:17},
+      7:{r:45,c:35}, 8:{r:47,c:35}, 9:{r:49,c:35}, 10:{r:51,c:35}, 11:{r:53,c:35}, 12:{r:55,c:35}, 13:{r:57,c:35},
+      14:{r:45,c:53}
+    };
+    for(let i=1;i<=14;i++){
+      const pos=envPositions[i];
+      if(data.envMeasures.includes(i)){
+        setStr(pos.r,pos.c,'✓');
+      }else{
+        clearVal(pos.r,pos.c);
+      }
+    }
+
+    // === XMLを書き戻し ===
+    const ser=new XMLSerializer();
+    let newXml=ser.serializeToString(doc);
+    if(!newXml.startsWith('<?xml'))newXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+newXml;
+    zip.file(SP,newXml);
+
+    // === ダウンロード ===
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const dateStr=dateVal.replace(/-/g,'');
+    const safeName=(pName||'作業日報').replace(/[\\/:*?"<>|]/g,'_');
+    const fileName=`作業日報_${safeName}_${dateStr}.xlsx`;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if(msg){msg.textContent='✅ '+fileName+' をダウンロードしました';msg.className='status-msg ok';}
+  }catch(e){
+    console.error(e);
+    if(msg){msg.textContent='❌ エラー: '+e.message;msg.className='status-msg err';}
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+
+// ============ Date navigation and page initialization ============
+function onDateChange(){
+  autoSaveNippo();
+  const dk=getDateKey();
+  if(dk){
+    const newMonth=dk.substring(0,7).replace('-','');
+    if(currentMonth && newMonth!==currentMonth){
+      switchMonth(newMonth);
+    }
+    restoreNippoData();
+  }
+}
+
+function onPageReady(){
+  // Update compact bar with project info
+  const pn=document.getElementById('nippoProjectName');
+  if(pn && allData.config?.projectName) pn.textContent=allData.config.projectName;
+
+  // Set date to today if empty
+  const wd=document.getElementById('workDate');
+  if(wd && !wd.value) wd.value=localDateStr(new Date());
+
+  // Refresh creator dropdown
+  refreshCreatorSelect();
+
+  // Restore nippo data for current date
+  restoreNippoData();
+
+  // Update datalists from master
+  updateNippoDataLists();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  initCommon();
+});
+</script>
+</body>
+</html>

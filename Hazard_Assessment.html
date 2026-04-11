@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KY活動表 - 建設現場管理システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="common.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#f0f2f5;color:#333;padding:12px}
+.container{max-width:1000px;margin:0 auto}
+h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
+.section{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.section-title{font-size:14px;font-weight:700;color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:5px;margin-bottom:12px}
+.form-row{display:flex;gap:10px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column}
+.fg label{font-size:11px;color:#666;margin-bottom:2px;font-weight:600}
+.fg input,.fg select,.fg textarea{border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:13px;outline:none}
+.fg input:focus,.fg select:focus{border-color:#1a56db}
+.f1{flex:1;min-width:100px}.f2{flex:2;min-width:180px}.f3{flex:3;min-width:260px}
+.w70{width:70px;flex:none}.w90{width:90px;flex:none}.w100{width:100px;flex:none}
+
+.work-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px}
+.work-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.work-label{font-weight:700;font-size:13px;color:#1e40af}
+.hazard-row{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-top:6px}
+.hazard-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hazard-label{font-size:12px;color:#6b7280;font-weight:600}
+
+.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-add{background:#1a56db;color:#fff}.btn-add:hover{background:#1544b5}
+.btn-add-sm{background:#10b981;color:#fff;font-size:11px;padding:4px 10px}.btn-add-sm:hover{background:#059669}
+.btn-del{background:#ef4444;color:#fff;font-size:11px;padding:4px 8px}.btn-del:hover{background:#dc2626}
+.btn-center{display:block;margin:8px auto 0}
+
+.score{background:#eef2ff;border-radius:5px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;min-width:60px;line-height:1.4}
+.rank-A{background:#fee2e2;color:#991b1b}.rank-B{background:#fef3c7;color:#92400e}
+.rank-C{background:#d1fae5;color:#065f46}.rank-D{background:#dbeafe;color:#1e40af}
+
+.chk-grid{display:grid;grid-template-columns:120px 1fr 1fr;gap:4px;align-items:center}
+.chk-grid .hd{font-weight:700;font-size:12px;text-align:center;color:#1a56db;padding:4px}
+.chk-grid .il{font-size:12px;padding:4px 0}
+.chk-grid .cc{text-align:center}
+.chk-grid input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#1a56db}
+
+.sig-grid{display:flex;flex-wrap:wrap;gap:8px}
+.sig-card{border:1px solid #d1d5db;border-radius:8px;overflow:hidden;width:110px;background:#fff;cursor:pointer;transition:box-shadow 0.2s}
+.sig-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.sig-card .sc-name{padding:4px 6px;background:#f3f4f6;font-size:10px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sig-card .sc-preview{width:110px;height:140px;display:flex;align-items:center;justify-content:center;background:#fff;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;position:relative}
+.sig-card .sc-preview img{max-width:100%;max-height:100%;object-fit:contain}
+.sig-card .sc-preview .sc-placeholder{color:#d1d5db;font-size:28px}
+.sig-card .sc-status{font-size:9px;text-align:center;padding:2px;color:#059669;font-weight:600}
+.sig-card .sc-status.unsigned{color:#9ca3af}
+.sig-card .sc-health{display:flex;justify-content:center;padding:2px 4px;background:#f9fafb}
+.sig-card .sc-health select{font-size:10px;border:1px solid #ddd;border-radius:3px;padding:1px 3px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal-box{background:#fff;border-radius:16px;width:90vw;max-width:420px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1a56db;color:#fff}
+.modal-header .modal-title{font-size:16px;font-weight:700}
+.modal-header button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-canvas-wrap{padding:12px;display:flex;justify-content:center;background:#f9fafb}
+.modal-canvas-wrap canvas{border:2px solid #d1d5db;border-radius:8px;background:#fff;touch-action:none}
+.modal-actions{display:flex;gap:8px;padding:10px 16px;justify-content:space-between;background:#f9fafb;border-top:1px solid #e5e7eb}
+.modal-actions .mbtn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;flex:1;text-align:center}
+.mbtn-clear{background:#f3f4f6;color:#374151}.mbtn-clear:hover{background:#e5e7eb}
+.mbtn-ok{background:#059669;color:#fff}.mbtn-ok:hover{background:#047857}
+
+.sig-count{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sig-count label{font-size:12px;font-weight:600}
+.sig-count input{width:50px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-size:13px}
+
+.submit-btn{background:#059669;color:#fff;border:none;border-radius:8px;padding:14px 40px;cursor:pointer;font-size:16px;font-weight:700;display:block;margin:16px auto 0}
+.submit-btn:hover{background:#047857}
+.submit-btn:disabled{background:#9ca3af;cursor:not-allowed}
+.status-msg{text-align:center;margin-top:10px;font-size:14px;font-weight:600}
+.status-msg.ok{color:#059669}.status-msg.err{color:#ef4444}.status-msg.loading{color:#1a56db}
+.note{font-size:11px;color:#9ca3af;margin-top:4px;text-align:center}
+.template-info{background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px}
+.nbtn{border:1px solid #d1d5db;background:#f9fafb;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:16px;line-height:1;color:#1a56db;font-weight:700;min-width:36px;text-align:center;position:relative;z-index:2}
+.nbtn:hover{background:#dbeafe;border-color:#1a56db}
+.nbtn:active{background:#1a56db;color:#fff}
+.template-info .icon{font-size:18px}
+.auto-tag{display:inline-block;background:#dbeafe;color:#1e40af;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:700;vertical-align:middle}
+
+/* 設定・データ保存ボタン */
+.config-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cbtn{border:none;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.cbtn-save{background:#1a56db;color:#fff}.cbtn-save:hover{background:#1544b5}
+.cbtn-load{background:#6366f1;color:#fff}.cbtn-load:hover{background:#4f46e5}
+.cbtn-data-save{background:#059669;color:#fff}.cbtn-data-save:hover{background:#047857}
+.cbtn-data-load{background:#0891b2;color:#fff}.cbtn-data-load:hover{background:#0e7490}
+.config-bar .sep{border-left:1px solid #d1d5db;margin:0 2px;height:24px}
+.config-status{font-size:11px;color:#059669;margin-top:4px;text-align:center;min-height:16px}
+@media(max-width:768px){.desktop-only{display:none!important}}
+
+/* Screen system */
+.screen{display:none}.screen.active{display:block}
+
+/* Home screen */
+.home-hero{text-align:center;padding:20px 0 8px}
+.home-hero h1{font-size:22px;color:#1a56db;margin-bottom:2px}
+.home-hero p{font-size:12px;color:#6b7280}
+.nav-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+.nav-card{background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:28px 12px;text-align:center;cursor:pointer;transition:all 0.2s;user-select:none}
+.nav-card:hover{border-color:#1a56db;box-shadow:0 4px 16px rgba(26,86,219,0.15);transform:translateY(-2px)}
+.nav-card:active{transform:translateY(0)}
+.nav-card .nav-icon{font-size:44px;margin-bottom:8px}
+.nav-card .nav-label{font-size:18px;font-weight:700;color:#1e40af}
+.nav-card .nav-desc{font-size:11px;color:#6b7280;margin-top:4px;line-height:1.4}
+
+/* Screen header bar */
+.screen-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.back-btn{background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:inline-flex;align-items:center;gap:4px}
+.back-btn:hover{background:#e5e7eb}
+.screen-title{font-size:18px;font-weight:700;color:#1a56db}
+.compact-bar{background:#fff;border-radius:10px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.compact-bar .cb-project{font-weight:700;color:#1e40af;font-size:14px}
+.compact-bar .cb-date{display:flex;align-items:center;gap:6px;margin-left:auto}
+.compact-bar .cb-date-text{font-weight:600;font-size:14px;min-width:100px;text-align:center}
+
+/* Nippo form */
+.nippo-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative}
+.nippo-block .nb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.nippo-block .nb-label{font-weight:700;font-size:12px;color:#1e40af}
+.nippo-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.env-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.env-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;cursor:pointer;user-select:none}
+.env-item:hover{background:#eef2ff}
+.env-item input[type=checkbox]{width:18px;height:18px;accent-color:#059669;cursor:pointer}
+.env-item label{cursor:pointer}
+.complaint-block{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:8px}
+.complaint-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.complaint-cats{display:flex;gap:10px;flex-wrap:wrap}
+.complaint-cats label{font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer}
+.complaint-cats input{accent-color:#1a56db}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== KY活動表画面 ===== -->
+<div id="screenKY" class="screen active">
+  <div class="screen-bar">
+    <button class="back-btn" onclick="navigateTo('index.html')">← ホーム</button>
+    <span class="screen-title">📋 KY活動表</span>
+  </div>
+  <div class="compact-bar" id="kyBar">
+    <span class="cb-project" id="kyProjectName"></span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="nbtn" onclick="shiftDate(-1)">◀</button>
+      <input type="date" id="workDate" onchange="onDateChange()" style="width:140px;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:13px">
+      <button class="nbtn" onclick="shiftDate(1)">▶</button>
+    </div>
+    <div class="fg" style="min-width:90px"><label style="font-size:10px;color:#666">作成者</label><select id="creator" onchange="autoSave()" style="min-width:90px;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:13px"></select></div>
+    <button class="btn btn-add-sm" style="background:#8b5cf6" onclick="copyPrevDay()" title="前日コピー">📋 前日コピー</button>
+    <button class="cbtn cbtn-data-load" onclick="clearForm()">🗑 クリア</button>
+  </div>
+
+  <!-- 作業内容・リスク評価 -->
+  <div class="section">
+    <div class="section-title">作業内容・リスク評価（最大10スロット）</div>
+  <div id="workBlocks"></div>
+  <button class="btn btn-add btn-center" onclick="addWorkBlock()">＋ 作業内容を追加</button>
+  <p class="note">※ 1つの作業内容に複数の危険要因を追加可。危険要因を選ぶと重大性・頻度・安全対策が自動入力されます。</p>
+</div>
+
+<!-- 測定機器使用前点検 -->
+<div class="section">
+  <div class="section-title">測定機器使用前点検</div>
+  <div class="chk-grid">
+    <div></div><div class="hd" style="cursor:pointer" onclick="toggleAll('ts')">TS<br><span style="font-size:9px;color:#6b7280">全選択</span></div><div class="hd" style="cursor:pointer" onclick="toggleAll('level')">レベル<br><span style="font-size:9px;color:#6b7280">全選択</span></div>
+    <div class="il">外観異常</div><div class="cc"><input type="checkbox" data-i="ts" data-k="exterior"></div><div class="cc"><input type="checkbox" data-i="level" data-k="exterior"></div>
+    <div class="il">光学系異常</div><div class="cc"><input type="checkbox" data-i="ts" data-k="optical"></div><div class="cc"><input type="checkbox" data-i="level" data-k="optical"></div>
+    <div class="il">ネジ部異常</div><div class="cc"><input type="checkbox" data-i="ts" data-k="screw"></div><div class="cc"><input type="checkbox" data-i="level" data-k="screw"></div>
+    <div class="il">回転部異常</div><div class="cc"><input type="checkbox" data-i="ts" data-k="rotation"></div><div class="cc"><input type="checkbox" data-i="level" data-k="rotation"></div>
+  </div>
+  <div class="form-row" style="margin-top:8px"><div class="fg f1"><label>備考</label><input type="text" id="inspNote"></div></div>
+</div>
+
+<!-- 連絡事項・安全目標 -->
+<div class="section">
+  <div class="section-title">連絡事項・安全目標</div>
+  <div class="form-row"><div class="fg f1"><label>連絡事項等</label><textarea id="notice" rows="2" style="width:100%"></textarea></div></div>
+  <div class="form-row">
+    <div class="fg f3"><label>本日の安全目標 <span class="auto-tag">自動生成</span></label><input type="text" id="safetyGoal" value="足元よし!！"></div>
+    <div class="fg" style="flex:none"><label>&nbsp;</label><button class="btn btn-add" onclick="autoSafetyGoal()">自動生成</button></div>
+  </div>
+</div>
+
+<!-- 署名欄 -->
+<div class="section">
+  <div class="section-title">署名欄・健康状態（タップして手書きサイン）</div>
+  <div class="sig-count">
+    <label>署名人数：</label>
+    <input type="number" id="sigCount" value="4" min="1" max="22">
+    <button class="btn btn-add" onclick="renderSigs()">更新</button>
+  </div>
+  <div class="sig-grid" id="sigGrid"></div>
+  <p class="note">※ カードをタップすると署名画面が開きます</p>
+</div>
+
+  <button class="submit-btn" onclick="exportExcel()">📥 KY活動表 Excel出力</button>
+  <div style="text-align:right;margin-top:4px"><a href="#" style="font-size:11px;color:#999" onclick="event.preventDefault();if(confirm('テンプレートキャッシュをクリアしますか？次回出力時にファイル選択が必要になります。')){localStorage.removeItem('KY_TMPL_B64');_kyTmplCache=null;alert('クリアしました');}">テンプレート再選択</a></div>
+  <div class="status-msg" id="statusMsgKY"></div>
+</div><!-- end container -->
+
+<!-- 署名モーダル -->
+<div class="modal-overlay" id="sigModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="sigModalTitle">署名</span>
+      <button onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-canvas-wrap">
+      <canvas id="sigCanvas" width="300" height="200"></canvas>
+    </div>
+    <div class="modal-actions">
+      <button class="mbtn mbtn-clear" onclick="clearModalCanvas()">クリア</button>
+      <button class="mbtn mbtn-ok" onclick="confirmSign()">完了</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ============ Constants ============
+const ROW_STARTS={ky:5,hazard:6,equip:100,notice:106,goal:108,sig:111};
+const COL={cat:1,item:2,haz:3,sev:4,freq:5,meas:6,rank:7,contact:8,equip:9};
+const SIG_COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V'];
+const INSP_MAP={ts_exterior:'B21',ts_optical:'B22',ts_screw:'B23',ts_rotation:'B24',level_exterior:'C21',level_optical:'C22',level_screw:'C23',level_rotation:'C24',inspNote:'B25'};
+let wkId=0;
+
+// ============ KY Form Functions ============
+function getTotalSlots(){
+  return document.querySelectorAll('.work-block').length;
+}
+
+function addWorkBlock(){
+  if(getTotalSlots()>=10){alert('最大10スロットに達しています');return}
+  const wb=document.getElementById('workBlocks');
+  const catOpts=opts(M['作業内容']||[], '');
+  const html=`
+  <div class="work-block" data-wk-id="${wkId}">
+    <div class="work-header">
+      <div class="work-label" style="flex:1">【作業${getTotalSlots()+1}】</div>
+      <button class="btn btn-del" onclick="this.parentElement.parentElement.remove();autoSave()">削除</button>
+    </div>
+    <div class="form-row">
+      <div class="fg f1"><label>工種</label><select class="wk-cat" onchange="onCategorySelect(this)" style="background:#fffbeb;border-color:#f59e0b">${catOpts}</select></div>
+      <div class="fg f2"><label>作業項目</label><select class="wk-item" onchange="autoSave()" style="background:#fffbeb"><option value="">--</option></select></div>
+    </div>
+    <div id="hazards-${wkId}"></div>
+    <button class="btn btn-add-sm" onclick="addHazard(this)">＋ 危険要因</button>
+  </div>`;
+  wb.innerHTML+=html;
+  wkId++;
+}
+
+function onCategorySelect(sel){
+  const cat=sel.value;
+  const block=sel.closest('.work-block');
+  const itemSel=block.querySelector('.wk-item');
+  if(!cat){itemSel.innerHTML='<option value="">--</option>';return}
+  const items=masterData.workCategories.find(c=>c.category===cat)?.items||[];
+  itemSel.innerHTML='<option value="">--</option>'+items.map(v=>`<option value="${v}">${v}</option>`).join('');
+  autoSave();
+}
+
+function addHazard(btn){
+  const block=btn.closest('.work-block');
+  const wkId=block.getAttribute('data-wk-id');
+  const hazId=Math.random().toString(36).substring(7);
+  const hazDiv=block.querySelector(`#hazards-${wkId}`);
+  if(!hazDiv)return;
+  const hazOpts=opts(M['危険要因']||[], '');
+  const sevOpts=opts(M['重大性']||[], '');
+  const freqOpts=opts(M['頻度']||[], '');
+  const measOpts=opts(M['安全対策']||[], '');
+  const html=`
+  <div class="hazard-row" data-haz-id="${hazId}">
+    <div class="hazard-header">
+      <div class="hazard-label">危険要因</div>
+      <button class="btn btn-del" style="font-size:10px;padding:2px 6px" onclick="this.parentElement.parentElement.remove();autoSave()">削除</button>
+    </div>
+    <div class="form-row">
+      <div class="fg f2"><select class="haz-sel" onchange="onHazardChange(this)">${hazOpts}</select></div>
+      <div class="fg w70"><label>重大性</label><select class="haz-sev">${sevOpts}</select></div>
+      <div class="fg w70"><label>頻度</label><select class="haz-freq">${freqOpts}</select></div>
+      <div class="fg" style="flex:1"><label>安全対策</label><select class="haz-meas">${measOpts}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+      <span class="score rank-A" id="rank-${hazId}">リスク: -</span>
+    </div>
+  </div>`;
+  hazDiv.innerHTML+=html;
+  autoSave();
+}
+
+function onHazardChange(sel){
+  const hazard=sel.value;
+  const row=sel.closest('.hazard-row');
+  const sevSel=row.querySelector('.haz-sev');
+  const freqSel=row.querySelector('.haz-freq');
+  const measSel=row.querySelector('.haz-meas');
+  if(!hazard){sevSel.value='';freqSel.value='';measSel.value='';return}
+  const def=HAZARD_DEFAULTS[hazard]||{};
+  if(def.sev)sevSel.value=def.sev;
+  if(def.freq)freqSel.value=def.freq;
+  if(def.measure)measSel.value=def.measure;
+  calcS(row);
+  autoSave();
+}
+
+function calcS(el){
+  const row=el.closest('.hazard-row');
+  if(!row)return;
+  const sev=parseInt(row.querySelector('.haz-sev').value)||0;
+  const freq=parseInt(row.querySelector('.haz-freq').value)||0;
+  const s=sev*freq;
+  const rankEl=row.querySelector('[id^="rank-"]');
+  if(!rankEl)return;
+  let rankClass='rank-D',rankText='低';
+  if(s>=100){rankClass='rank-A';rankText='極';}
+  else if(s>=50){rankClass='rank-B';rankText='高';}
+  else if(s>=10){rankClass='rank-C';rankText='中';}
+  rankEl.textContent=`リスク: ${rankText} (${s})`;
+  rankEl.className='score '+rankClass;
+}
+
+function onWorkMasterSelect(sel){
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt)return;
+}
+
+function toggleAll(instrument){
+  const checkboxes=document.querySelectorAll(`input[data-i="${instrument}"]`);
+  const allChecked=Array.from(checkboxes).every(cb=>cb.checked);
+  checkboxes.forEach(cb=>cb.checked=!allChecked);
+  autoSave();
+}
+
+function autoSafetyGoal(){
+  const measures=Array.from(document.querySelectorAll('.haz-meas')).map(s=>s.value).filter(v=>v);
+  if(measures.length===0){alert('先に危険要因と安全対策を入力してください');return}
+  const measure=measures[0];
+  const goal=GOAL_MAP[measure]||'足元よし!!';
+  document.getElementById('safetyGoal').value=goal;
+  autoSave();
+}
+
+// ============ Signature Functions ============
+let sigData={};
+let currentSigId=null;
+
+function renderSigs(){
+  const count=parseInt(document.getElementById('sigCount').value)||1;
+  const grid=document.getElementById('sigGrid');
+  const oldData={...sigData};
+  sigData={};
+  for(let i=0;i<count;i++){
+    sigData[i]=oldData[i]||{name:'',health:'良好',png:null};
+    const d=sigData[i];
+    const signed=d.png?'✓':'署名待';
+    const html=`
+    <div class="sig-card" onclick="openModal(${i})">
+      <div class="sc-name">${d.name||('署名者'+(i+1))}</div>
+      <div class="sc-preview">
+        ${d.png?`<img src="${d.png}" alt="sig">`:'<div class="sc-placeholder">✍</div>'}
+      </div>
+      <div class="sc-status ${!d.png?'unsigned':''}">${signed}</div>
+      <div class="sc-health">
+        <select data-sig-id="${i}" onchange="autoSave()" style="background:${d.health==='良好'?'#d1fae5':'#fef3c7'}">
+          <option value="良好"${d.health==='良好'?' selected':''}>良好</option>
+          <option value="注意"${d.health==='注意'?' selected':''}>注意</option>
+          <option value="不可"${d.health==='不可'?' selected':''}>不可</option>
+        </select>
+      </div>
+    </div>`;
+    grid.innerHTML+=html;
+  }
+}
+
+function updateCardName(){
+  const cards=document.querySelectorAll('.sig-card');
+  if(currentSigId<cards.length){
+    const d=sigData[currentSigId];
+    cards[currentSigId].querySelector('.sc-name').textContent=d.name||('署名者'+(currentSigId+1));
+  }
+}
+
+function openModal(id){
+  currentSigId=id;
+  const d=sigData[id];
+  document.getElementById('sigModalTitle').textContent=`署名 - 署名者${id+1}`;
+  const modal=document.getElementById('sigModal');
+  modal.classList.add('active');
+  setTimeout(initModalCanvas,100);
+}
+
+function closeModal(){
+  document.getElementById('sigModal').classList.remove('active');
+}
+
+function clearModalCanvas(){
+  const canvas=document.getElementById('sigCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function confirmSign(){
+  const png=getSigPNG();
+  sigData[currentSigId].png=png;
+  const cards=document.querySelectorAll('.sig-card');
+  const card=cards[currentSigId];
+  if(card){
+    const preview=card.querySelector('.sc-preview');
+    preview.innerHTML=`<img src="${png}" alt="sig">`;
+    const status=card.querySelector('.sc-status');
+    status.textContent='✓';
+    status.classList.remove('unsigned');
+  }
+  closeModal();
+  autoSave();
+}
+
+function initModalCanvas(){
+  const canvas=document.getElementById('sigCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  ctx.lineWidth=3;
+  ctx.strokeStyle='#000';
+  let isDrawing=false;
+  canvas.addEventListener('mousedown',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo(e.clientX-rect.left,e.clientY-rect.top);});
+  canvas.addEventListener('mousemove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();ctx.lineTo(e.clientX-rect.left,e.clientY-rect.top);ctx.stroke();});
+  canvas.addEventListener('mouseup',()=>{isDrawing=false;});
+  canvas.addEventListener('touchstart',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.beginPath();ctx.moveTo(t.clientX-rect.left,t.clientY-rect.top);});
+  canvas.addEventListener('touchmove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-rect.left,t.clientY-rect.top);ctx.stroke();});
+  canvas.addEventListener('touchend',()=>{isDrawing=false;});
+  if(sigData[currentSigId]?.png){ctx.drawImage(new Image(),0,0);}
+}
+
+function getSigPNG(){
+  const canvas=document.getElementById('sigCanvas');
+  return canvas.toDataURL('image/png');
+}
+
+// ============ KY Excel Export (JSZip直接XML編集 - テンプレート形状完全保持) ============
+let _kyTmplCache=null;
+
+function pickKyTemplate(){
+  return new Promise((resolve)=>{
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.xlsx,.xls';
+    inp.style.display='none';
+    inp.onchange=()=>{
+      if(!inp.files||!inp.files[0]){resolve(null);return;}
+      const reader=new FileReader();
+      reader.onload=()=>{resolve(reader.result);};
+      reader.onerror=()=>{resolve(null);};
+      reader.readAsArrayBuffer(inp.files[0]);
+    };
+    inp.addEventListener('cancel',()=>resolve(null));
+    document.body.appendChild(inp);
+    inp.click();
+    document.body.removeChild(inp);
+  });
+}
+
+async function exportExcel(){
+  const btn=document.querySelector('.submit-btn');
+  const msg=document.getElementById('statusMsgKY');
+
+  // === バリデーション ===
+  const errors=[];
+  if(!document.getElementById('kyProjectName').textContent.trim()) errors.push('工事名が未入力です');
+  if(!document.getElementById('creator').value||document.getElementById('creator').value==='--') errors.push('作成者が未選択です');
+  if(!document.getElementById('workDate').value) errors.push('日付が未入力です');
+  const wblocks=document.querySelectorAll('#workBlocks .work-block');
+  if(wblocks.length===0) errors.push('作業内容が1つもありません');
+  wblocks.forEach((wb,idx)=>{
+    const bn=idx+1;
+    const nm=wb.querySelector('.wk-name').value.trim();
+    const qt=wb.querySelector('.wk-qty').value.trim();
+    const un=wb.querySelector('.wk-unit').value;
+    if(!nm) errors.push(`作業内容${bn}：作業名が未入力です`);
+    if(!qt) errors.push(`作業内容${bn}：数量が未入力です`);
+    if(!un||un==='--') errors.push(`作業内容${bn}：単位が未選択です`);
+    const hzRows=wb.querySelectorAll('.hazard-row');
+    let hzSelected=0;
+    hzRows.forEach((hr,hi)=>{
+      const hn=hi+1;
+      const hz=hr.querySelector('.hz-hazard').value;
+      const sv=hr.querySelector('.hz-sev').value;
+      const fr=hr.querySelector('.hz-freq').value;
+      const ms=hr.querySelector('.hz-measure').value;
+      if(hz&&hz!=='--') hzSelected++;
+      if(!hz||hz==='--') errors.push(`作業内容${bn} 危険要因${hn}：危険要因が未選択です`);
+      if(!sv||sv==='--') errors.push(`作業内容${bn} 危険要因${hn}：重大性が未選択です`);
+      if(!fr||fr==='--') errors.push(`作業内容${bn} 危険要因${hn}：頻度が未選択です`);
+      if(!ms||ms==='--') errors.push(`作業内容${bn} 危険要因${hn}：安全対策が未選択です`);
+    });
+    if(hzSelected<1) errors.push(`作業内容${bn}：危険要因を1つ以上選択してください`);
+  });
+  let signedCount=0;
+  const sc=parseInt(document.getElementById('sigCount').value)||0;
+  for(let i=1;i<=sc&&i<=22;i++){
+    if(sigData[i]&&sigData[i].png) signedCount++;
+  }
+  if(signedCount<1) errors.push('署名が1人以上必要です');
+
+  if(errors.length>0){
+    msg.className='status-msg err';
+    msg.textContent='⚠️ 入力不足があります：';
+    const ul=document.createElement('ul');
+    ul.style.cssText='margin:6px 0 0 18px;font-size:12px;text-align:left;list-style:disc';
+    errors.forEach(e=>{const li=document.createElement('li');li.textContent=e;ul.appendChild(li);});
+    msg.appendChild(ul);
+    if(btn)btn.disabled=false;
+    return;
+  }
+
+  if(btn)btn.disabled=true;
+  msg.className='status-msg loading';
+  msg.textContent='⏳ Excelファイルを生成中...';
+
+  try{
+    // テンプレート取得（メモリキャッシュ → localStorage → ファイル選択）
+    if(!_kyTmplCache){
+      try{
+        const cached=localStorage.getItem('KY_TMPL_B64');
+        if(cached&&cached.length>100){
+          msg.textContent='⏳ キャッシュからテンプレート読込中…';
+          const bin=atob(cached);
+          const buf=new Uint8Array(bin.length);
+          for(let k=0;k<bin.length;k++)buf[k]=bin.charCodeAt(k);
+          _kyTmplCache=buf.buffer;
+        }
+      }catch(e){console.warn('localStorageキャッシュ読込失敗',e);_kyTmplCache=null;}
+      if(!_kyTmplCache){
+        msg.textContent='📂 KY活動表テンプレート(.xlsx)を選択してください（初回のみ）';
+        const ab=await pickKyTemplate();
+        if(!ab){
+          msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';
+          if(btn)btn.disabled=false;return;
+        }
+        _kyTmplCache=ab;
+        try{
+          const arr=new Uint8Array(ab);
+          let binary='';for(let k=0;k<arr.length;k++)binary+=String.fromCharCode(arr[k]);
+          localStorage.setItem('KY_TMPL_B64',btoa(binary));
+          console.log('KYテンプレートをlocalStorageにキャッシュしました');
+        }catch(e){console.warn('localStorageキャッシュ保存失敗',e);}
+      }
+    }
+    const buf=new Uint8Array(_kyTmplCache);
+    msg.textContent='⏳ Excelファイルを生成中...';
+
+    const zip=await JSZip.loadAsync(buf);
+    const SP='xl/worksheets/sheet1.xml';
+    const xml=await zip.file(SP).async('string');
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(xml,'application/xml');
+    const ns=doc.documentElement.namespaceURI;
+
+    function getRow(r){
+      const sd=doc.getElementsByTagNameNS(ns,'sheetData')[0];
+      const rows=sd.getElementsByTagNameNS(ns,'row');
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))===r)return rows[i];}
+      const nr=doc.createElementNS(ns,'row');nr.setAttribute('r',String(r));
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))>r){sd.insertBefore(nr,rows[i]);return nr;}}
+      sd.appendChild(nr);return nr;
+    }
+    function getCell(r,c){
+      const ref=cRef(r,c);
+      const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){if(cells[i].getAttribute('r')===ref)return cells[i];}
+      const nc=doc.createElementNS(ns,'c');nc.setAttribute('r',ref);
+      const cIdx=c;
+      for(let i=0;i<cells.length;i++){
+        const cr=cells[i].getAttribute('r');
+        const ec=cr.replace(/[0-9]/g,'');
+        let ei=0;for(let j=0;j<ec.length;j++)ei=ei*26+(ec.charCodeAt(j)-64);
+        if(ei>cIdx){rowEl.insertBefore(nc,cells[i]);return nc;}
+      }
+      rowEl.appendChild(nc);return nc;
+    }
+    function clearCellContent(cell){
+      while(cell.firstChild)cell.removeChild(cell.firstChild);
+      cell.removeAttribute('t');
+    }
+    function setNum(r,c,val){
+      const cell=getCell(r,c);clearCellContent(cell);
+      const v=doc.createElementNS(ns,'v');v.textContent=String(val);
+      cell.appendChild(v);
+    }
+    function setStr(r,c,text){
+      if(!text){clearVal(r,c);return;}
+      const cell=getCell(r,c);clearCellContent(cell);
+      cell.setAttribute('t','inlineStr');
+      const is=doc.createElementNS(ns,'is');
+      const t=doc.createElementNS(ns,'t');
+      t.textContent=text;is.appendChild(t);cell.appendChild(is);
+    }
+    function clearVal(r,c){
+      const ref=cRef(r,c);const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){
+        if(cells[i].getAttribute('r')===ref){clearCellContent(cells[i]);return;}
+      }
+    }
+
+    // === styles.xml: BS3〜CJ3セルの下詰め対応 ===
+    const styPath='xl/styles.xml';
+    let styXml=await zip.file(styPath).async('string');
+    const row3El=getRow(3);
+    const row3Cells=row3El.getElementsByTagNameNS(ns,'c');
+    const usedStyles=new Set();
+    for(let ci=0;ci<row3Cells.length;ci++){
+      const ref=row3Cells[ci].getAttribute('r');
+      const colStr=ref.replace(/[0-9]/g,'');
+      let colIdx=0;for(let j=0;j<colStr.length;j++)colIdx=colIdx*26+(colStr.charCodeAt(j)-64);
+      if(colIdx>=71&&colIdx<=88){
+        const s=row3Cells[ci].getAttribute('s');
+        if(s)usedStyles.add(parseInt(s));
+      }
+    }
+    const styParser=new DOMParser();
+    const styDoc=styParser.parseFromString(styXml,'application/xml');
+    const styNs=styDoc.documentElement.namespaceURI;
+    const cellXfs=styDoc.getElementsByTagNameNS(styNs,'cellXfs')[0];
+    if(cellXfs){
+      const xfs=cellXfs.getElementsByTagNameNS(styNs,'xf');
+      usedStyles.forEach(idx=>{
+        if(idx<xfs.length){
+          const xf=xfs[idx];
+          let align=xf.getElementsByTagNameNS(styNs,'alignment')[0];
+          if(!align){
+            align=styDoc.createElementNS(styNs,'alignment');
+            xf.appendChild(align);
+            xf.setAttribute('applyAlignment','1');
+          }
+          align.setAttribute('vertical','bottom');
+          if(!align.getAttribute('horizontal')||align.getAttribute('horizontal')==='general'){
+            align.setAttribute('horizontal','center');
+          }
+        }
+      });
+    }
+    const stySer=new XMLSerializer();
+    styXml=stySer.serializeToString(styDoc);
+    zip.file(styPath,styXml);
+
+    // === 基本情報 ===
+    setStr(3,6,document.getElementById('kyProjectName').textContent);
+    setStr(3,59,document.getElementById('creator').value);
+    const dt=document.getElementById('workDate').value;
+    if(dt){
+      const d=new Date(dt+'T00:00:00');
+      const rY=d.getFullYear()-2018;
+      const mo=d.getMonth()+1, da=d.getDate();
+      const dow=['日','月','火','水','木','金','土'][d.getDay()];
+      setNum(3,74,rY); setNum(3,78,mo); setNum(3,82,da); setStr(3,86,dow);
+    }
+
+    // === 既存データクリア ===
+    for(const r of ROW_STARTS){
+      for(const c of [COL.A,COL.R,COL.W,COL.Z,COL.AQ,COL.AT,COL.AW,COL.AZ,COL.BC]) clearVal(r,c);
+    }
+
+    // === 作業内容・危険要因 ===
+    let slot=0;
+    document.querySelectorAll('#workBlocks .work-block').forEach(wbEl=>{
+      const name=wbEl.querySelector('.wk-name').value;
+      const qty=wbEl.querySelector('.wk-qty').value;
+      const unit=wbEl.querySelector('.wk-unit').value;
+      const hazards=wbEl.querySelectorAll('.hazard-row');
+      let first=true;
+      hazards.forEach(hr=>{
+        if(slot>=10)return;
+        const r=ROW_STARTS[slot];
+        if(first){
+          setStr(r,COL.A,name);
+          if(qty){const qn=parseFloat(qty);if(!isNaN(qn))setNum(r,COL.R,qn);else setStr(r,COL.R,qty);}
+          setStr(r,COL.W,unit);
+          first=false;
+        }
+        setStr(r,COL.Z,hr.querySelector('.hz-hazard').value);
+        const sev=hr.querySelector('.hz-sev').value;
+        const freq=hr.querySelector('.hz-freq').value;
+        const sevN=parseInt(sev)||0, freqN=parseInt(freq)||0;
+        if(sev)setNum(r,COL.AQ,sevN);
+        if(freq)setNum(r,COL.AT,freqN);
+        setStr(r,COL.BC,hr.querySelector('.hz-measure').value);
+        if(sevN&&freqN){
+          const score=sevN+freqN;
+          setNum(r,COL.AW,score);
+          setStr(r,COL.AZ,score>=30?'A':score>=25?'B':score>=15?'C':'D');
+        }
+        slot++;
+      });
+    });
+
+    // === 測定機器点検 ===
+    for(const[key,row] of Object.entries(INSP_MAP)){
+      const ts=document.querySelector(`[data-i="ts"][data-k="${key}"]`);
+      const lv=document.querySelector(`[data-i="level"][data-k="${key}"]`);
+      if(ts&&ts.checked)setStr(row,81,'✓');else clearVal(row,81);
+      if(lv&&lv.checked)setStr(row,86,'✓');else clearVal(row,86);
+    }
+    const inspNote=document.getElementById('inspNote').value;
+    if(inspNote)setStr(19,71,inspNote);
+
+    // === 連絡事項・安全目標 ===
+    setStr(29,1,document.getElementById('notice').value||'');
+    setStr(34,33,document.getElementById('safetyGoal').value||'');
+
+    // === 署名：健康状態テキスト ===
+    const sigCount=parseInt(document.getElementById('sigCount').value)||0;
+    const sigImages=[];
+    for(let i=1;i<=sigCount&&i<=22;i++){
+      const col=SIG_COLS[i-1];
+      const sd=sigData[i];
+      const png=sd?sd.png:null;
+      if(png){
+        if(sd.health)setStr(48,col,sd.health);
+        sigImages.push({idx:i,col:col,b64:png.split(',')[1]});
+      }
+    }
+
+    // === XMLを書き戻し ===
+    const ser=new XMLSerializer();
+    let newXml=ser.serializeToString(doc);
+    if(!newXml.startsWith('<?xml'))newXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+newXml;
+    zip.file(SP,newXml);
+
+    // === 署名画像をOOXML構造で追加 ===
+    if(sigImages.length>0){
+      const s1rPath='xl/worksheets/_rels/sheet1.xml.rels';
+      let s1r='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+      s1r+='<Relationship Id="rIdDrw" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawingSig.xml"/>';
+      s1r+='</Relationships>';
+      zip.file(s1rPath,s1r);
+
+      let s1xml=await zip.file(SP).async('string');
+      if(!s1xml.includes('<drawing ')){
+        s1xml=s1xml.replace('</worksheet>','<drawing r:id="rIdDrw"/></worksheet>');
+        if(!s1xml.includes('xmlns:r=')){
+          s1xml=s1xml.replace('<worksheet','<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"');
+        }
+        zip.file(SP,s1xml);
+      }
+
+      let drwRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+      let drwXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+      drwXml+='<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+
+      sigImages.forEach((si,idx)=>{
+        const imgName='sig'+(idx+1)+'.png';
+        const rId='rImg'+(idx+1);
+        const imgBin=atob(si.b64);
+        const imgBuf=new Uint8Array(imgBin.length);
+        for(let j=0;j<imgBin.length;j++)imgBuf[j]=imgBin.charCodeAt(j);
+        zip.file('xl/media/'+imgName,imgBuf);
+
+        drwRels+=`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${imgName}"/>`;
+
+        const fromCol=si.col-1;
+        const toCol=si.col+3;
+        drwXml+=`<xdr:twoCellAnchor editAs="oneCell">`;
+        drwXml+=`<xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>40</xdr:row><xdr:rowOff>9525</xdr:rowOff></xdr:from>`;
+        drwXml+=`<xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>-19050</xdr:colOff><xdr:row>47</xdr:row><xdr:rowOff>-9525</xdr:rowOff></xdr:to>`;
+        drwXml+=`<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${idx+2}" name="Sig${idx+1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>`;
+        drwXml+=`<xdr:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>`;
+        drwXml+=`<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>`;
+        drwXml+=`</xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+      });
+
+      drwXml+='</xdr:wsDr>';
+      drwRels+='</Relationships>';
+      zip.file('xl/drawings/drawingSig.xml',drwXml);
+      zip.file('xl/drawings/_rels/drawingSig.xml.rels',drwRels);
+
+      let ct=await zip.file('[Content_Types].xml').async('string');
+      if(!ct.includes('drawingSig.xml')){
+        ct=ct.replace('</Types>','<Override PartName="/xl/drawings/drawingSig.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+        zip.file('[Content_Types].xml',ct);
+      }
+    }
+
+    // === ダウンロード ===
+    const outBlob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+    const dateStr=document.getElementById('workDate').value||localDateStr(new Date());
+    const dateCompact=dateStr.replace(/-/g,'');
+    const fileName=`${dateCompact}_KY活動.xlsx`;
+
+    if(window.showSaveFilePicker){
+      try{
+        const handle=await showSaveFilePicker({
+          suggestedName:fileName,
+          types:[{description:'Excelファイル',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]
+        });
+        const writable=await handle.createWritable();
+        await writable.write(outBlob);
+        await writable.close();
+        msg.className='status-msg ok';
+        msg.textContent=`✅ ${handle.name} を保存しました！`;
+      }catch(err){
+        if(err.name==='AbortError'){msg.textContent='';msg.className='';return;}
+        throw err;
+      }
+    }else{
+      const url=URL.createObjectURL(outBlob);
+      const a=document.createElement('a');
+      a.href=url;a.download=fileName;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      msg.className='status-msg ok';
+      msg.textContent=`✅ ${fileName} をダウンロードしました！`;
+    }
+  }catch(e){
+    console.error(e);
+    msg.className='status-msg err';
+    msg.textContent='❌ エラー: '+e.message;
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+
+// ============ Data Collection ============
+function collectFormData(){
+  const data={
+    workDate: document.getElementById('workDate').value,
+    creator: document.getElementById('creator').value,
+    notice: document.getElementById('notice').value,
+    safetyGoal: document.getElementById('safetyGoal').value,
+    inspNote: document.getElementById('inspNote').value,
+    workBlocks: []
+  };
+
+  // Collect work blocks
+  document.querySelectorAll('.work-block').forEach((wb,idx)=>{
+    const block={
+      category: wb.querySelector('.wk-cat')?.value||'',
+      item: wb.querySelector('.wk-item')?.value||'',
+      hazards: []
+    };
+    wb.querySelectorAll('.hazard-row').forEach(hr=>{
+      block.hazards.push({
+        hazard: hr.querySelector('.haz-sel')?.value||'',
+        severity: hr.querySelector('.haz-sev')?.value||'',
+        frequency: hr.querySelector('.haz-freq')?.value||'',
+        measure: hr.querySelector('.haz-meas')?.value||''
+      });
+    });
+    data.workBlocks.push(block);
+  });
+
+  // Collect inspection checkboxes
+  data.inspection={};
+  document.querySelectorAll('[data-i][data-k]').forEach(cb=>{
+    data.inspection[cb.getAttribute('data-i')+'-'+cb.getAttribute('data-k')]=cb.checked;
+  });
+
+  // Collect signatures
+  data.signatures=sigData;
+
+  return data;
+}
+
+// ============ Form Clear & Restore ============
+function clearForm(){
+  if(!confirm('フォームをクリアしますか？'))return;
+  document.getElementById('workBlocks').innerHTML='';
+  document.getElementById('notice').value='';
+  document.getElementById('safetyGoal').value='足元よし!!';
+  document.getElementById('inspNote').value='';
+  document.querySelectorAll('[data-i][data-k]').forEach(cb=>cb.checked=false);
+  sigData={};
+  renderSigs();
+  autoSave();
+}
+
+function restoreFormData(data){
+  if(!data)return;
+  if(data.workDate) document.getElementById('workDate').value=data.workDate;
+  if(data.creator) document.getElementById('creator').value=data.creator;
+  if(data.notice) document.getElementById('notice').value=data.notice;
+  if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
+  if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
+
+  // Restore work blocks
+  if(data.workBlocks){
+    const wb=document.getElementById('workBlocks');
+    wb.innerHTML='';
+    data.workBlocks.forEach(block=>{
+      addWorkBlock();
+      const lastBlock=wb.querySelector('.work-block:last-child');
+      if(lastBlock){
+        lastBlock.querySelector('.wk-cat').value=block.category;
+        onCategorySelect(lastBlock.querySelector('.wk-cat'));
+        lastBlock.querySelector('.wk-item').value=block.item;
+        if(block.hazards){
+          block.hazards.forEach(haz=>{
+            addHazard(lastBlock.querySelector('.btn-add-sm'));
+            const lastHaz=lastBlock.querySelector('.hazard-row:last-child');
+            if(lastHaz){
+              lastHaz.querySelector('.haz-sel').value=haz.hazard;
+              lastHaz.querySelector('.haz-sev').value=haz.severity;
+              lastHaz.querySelector('.haz-freq').value=haz.frequency;
+              lastHaz.querySelector('.haz-meas').value=haz.measure;
+              calcS(lastHaz);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // Restore inspection
+  if(data.inspection){
+    Object.entries(data.inspection).forEach(([key,val])=>{
+      const parts=key.split('-');
+      const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
+      if(cb)cb.checked=val;
+    });
+  }
+
+  // Restore signatures
+  if(data.signatures){
+    sigData={...data.signatures};
+    renderSigs();
+  }
+}
+
+function onDateChange(){
+  autoSave();
+  const dk=getDateKey();
+  if(dk&&allData.entries[dk]){
+    restoreFormData(allData.entries[dk]);
+  }else{
+    clearForm();
+  }
+}
+
+// ============ Copy Previous Day ============
+async function copyPrevDay(){
+  const wd=document.getElementById('workDate');
+  if(!wd.value){alert('日付を選択してください');return}
+  const curDate=new Date(wd.value+'T00:00:00');
+  const prevDate=new Date(curDate);
+  prevDate.setDate(prevDate.getDate()-1);
+  const prevKey=localDateStr(prevDate).replace(/-/g,'');
+  if(!allData.entries[prevKey]){alert('前日のデータがありません');return}
+  if(confirm('前日のデータをコピーしますか？')){
+    await doCopyPrevDay(prevKey);
+  }
+}
+
+async function doCopyPrevDay(prevKey){
+  const prevData=allData.entries[prevKey];
+  const curKey=getDateKey();
+  allData.entries[curKey]={...prevData};
+  restoreFormData(prevData);
+  autoSave();
+}
+
+// ============ Auto-save ============
+function autoSave(){
+  if(!driveReady)return;
+  const dk=getDateKey();
+  if(!dk)return;
+  if(!allData.entries[dk])allData.entries[dk]={};
+  const fd=collectFormData();
+  Object.assign(allData.entries[dk], fd);
+  allData.config={
+    ...(allData.config||{}),
+    projectName: document.getElementById('kyProjectName')?.textContent||'',
+    creator: document.getElementById('creator')?.value||''
+  };
+  scheduleDataFileSave();
+}
+
+// ============ Page Initialization ============
+function onPageReady(){
+  const pn=document.getElementById('kyProjectName');
+  if(pn&&allData.config?.projectName)pn.textContent=allData.config.projectName;
+  const wd=document.getElementById('workDate');
+  if(wd&&!wd.value)wd.value=localDateStr(new Date());
+  refreshCreatorSelect();
+  const dk=getDateKey();
+  if(dk&&allData.entries[dk]){
+    restoreFormData(allData.entries[dk]);
+  }
+  renderSigs();
+  document.querySelectorAll('#workBlocks input, #workBlocks select, #workBlocks textarea').forEach(el=>{
+    el.addEventListener('change',autoSave);
+  });
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  initCommon();
+  onPageReady();
+});
+</script>
+</body>
+</html>
