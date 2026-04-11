@@ -6,7 +6,7 @@
 <title>建設現場管理システム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="nippo_tmpl.js"></script>
+<!-- nippo template: loaded from localStorage cache or file picker -->
 <!-- Google Identity Services (OAuth2) + Google API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -340,6 +340,7 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
   </div>
 
   <button class="submit-btn" onclick="exportNippoExcel()">📥 作業日報 Excel出力</button>
+  <div style="text-align:right;margin-top:4px"><a href="#" style="font-size:11px;color:#999" onclick="event.preventDefault();if(confirm('テンプレートキャッシュをクリアしますか？次回出力時にファイル選択が必要になります。')){localStorage.removeItem('NIPPO_TMPL_B64');_nippoTmplCache=null;alert('クリアしました');}">テンプレート再選択</a></div>
   <div class="status-msg" id="statusMsgNippo"></div>
 </div><!-- end screenNippo -->
 
@@ -3069,31 +3070,35 @@ async function exportNippoExcel(){
     const dateVal=document.getElementById('workDate').value;
     if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
 
-    // テンプレート取得（埋め込みGZ → ファイル選択フォールバック）
+    // テンプレート取得（メモリキャッシュ → localStorage → ファイル選択）
     if(!_nippoTmplCache){
-      if(typeof NIPPO_TMPL_GZ==='string'&&NIPPO_TMPL_GZ.length>100){
-        try{
-          if(msg){msg.textContent='⏳ テンプレート展開中…';msg.className='status-msg loading';}
-          const gzBin=atob(NIPPO_TMPL_GZ);
-          const gzBuf=new Uint8Array(gzBin.length);
-          for(let k=0;k<gzBin.length;k++)gzBuf[k]=gzBin.charCodeAt(k);
-          const ds=new DecompressionStream('gzip');
-          const wr=ds.writable.getWriter();
-          wr.write(gzBuf);wr.close();
-          _nippoTmplCache=await new Response(ds.readable).arrayBuffer();
-        }catch(e){
-          console.warn('GZ展開失敗、ファイル選択へ',e);
-          _nippoTmplCache=null;
+      // 1) localStorageからキャッシュを復元
+      try{
+        const cached=localStorage.getItem('NIPPO_TMPL_B64');
+        if(cached&&cached.length>100){
+          if(msg){msg.textContent='⏳ キャッシュからテンプレート読込中…';msg.className='status-msg loading';}
+          const bin=atob(cached);
+          const buf=new Uint8Array(bin.length);
+          for(let k=0;k<bin.length;k++)buf[k]=bin.charCodeAt(k);
+          _nippoTmplCache=buf.buffer;
         }
-      }
+      }catch(e){console.warn('localStorageキャッシュ読込失敗',e);_nippoTmplCache=null;}
+      // 2) キャッシュが無ければファイル選択（初回のみ）
       if(!_nippoTmplCache){
-        if(msg){msg.textContent='📂 作業日報テンプレート(.xlsx)を選択してください';msg.className='status-msg loading';}
+        if(msg){msg.textContent='📂 作業日報テンプレート(.xlsx)を選択してください（初回のみ）';msg.className='status-msg loading';}
         const ab=await pickNippoTemplate();
         if(!ab){
           if(msg){msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';}
           if(btn)btn.disabled=false;return;
         }
         _nippoTmplCache=ab;
+        // localStorageにキャッシュ保存（次回以降はファイル選択不要）
+        try{
+          const arr=new Uint8Array(ab);
+          let binary='';for(let k=0;k<arr.length;k++)binary+=String.fromCharCode(arr[k]);
+          localStorage.setItem('NIPPO_TMPL_B64',btoa(binary));
+          console.log('日報テンプレートをlocalStorageにキャッシュしました');
+        }catch(e){console.warn('localStorageキャッシュ保存失敗',e);}
       }
     }
     const tmplBuf=new Uint8Array(_nippoTmplCache);
