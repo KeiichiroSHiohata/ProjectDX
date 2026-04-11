@@ -6,6 +6,7 @@
 <title>建設現場管理システム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="nippo_template.js"></script>
 <!-- Google Identity Services (OAuth2) + Google API -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -3033,38 +3034,13 @@ async function copyPrevDayNippo(){
 }
 
 // ============ 日報Excel出力 (JSZip+テンプレート) ============
-let nippoTemplateFileId=null; // キャッシュ
-
-async function findNippoTemplate(){
-  if(nippoTemplateFileId) return nippoTemplateFileId;
-  try{
-    // 共有ドライブ含めて検索
-    const resp=await gapi.client.drive.files.list({
-      q:"name='作業日報.xlsx' and trashed=false",
-      fields:'files(id,name)',spaces:'drive',
-      includeItemsFromAllDrives:true,supportsAllDrives:true,corpora:'allDrives'
-    });
-    const files=resp.result.files||[];
-    if(files.length>0){nippoTemplateFileId=files[0].id;return nippoTemplateFileId;}
-  }catch(e){console.error('template search error',e);}
-  return null;
-}
-
-async function downloadNippoTemplate(fileId){
-  const resp=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{
-    headers:{Authorization:'Bearer '+driveAccessToken}
-  });
-  if(!resp.ok) throw new Error('テンプレートのダウンロードに失敗しました ('+resp.status+')');
-  return await resp.arrayBuffer();
-}
-
 async function exportNippoExcel(){
   const btn=document.querySelector('#screenNippo .submit-btn');
   const msg=document.getElementById('statusMsgNippo');
 
   try{
     if(btn)btn.disabled=true;
-    if(msg){msg.textContent='⏳ テンプレートを読込中…';msg.className='status-msg loading';}
+    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
 
     const data=collectNippoData();
     const pName=document.getElementById('projectName').textContent||'';
@@ -3072,15 +3048,14 @@ async function exportNippoExcel(){
     const dateVal=document.getElementById('workDate').value;
     if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
 
-    // テンプレート取得
-    const tmplId=await findNippoTemplate();
-    if(!tmplId){
-      alert('Google Drive上に「作業日報.xlsx」テンプレートが見つかりません。\n共有ドライブにテンプレートを配置してください。');
+    // 埋め込みテンプレートからバイナリ復元
+    if(typeof NIPPO_TEMPLATE_B64==='undefined'||!NIPPO_TEMPLATE_B64){
+      alert('作業日報テンプレートが読み込まれていません。\nnippo_template.js が正しく配置されているか確認してください。');
       if(btn)btn.disabled=false;return;
     }
-    const tmplBuf=await downloadNippoTemplate(tmplId);
-
-    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
+    const bin=atob(NIPPO_TEMPLATE_B64);
+    const tmplBuf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)tmplBuf[i]=bin.charCodeAt(i);
 
     // JSZipでテンプレート解析
     const zip=await JSZip.loadAsync(tmplBuf);
