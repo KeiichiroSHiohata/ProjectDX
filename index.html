@@ -294,8 +294,8 @@ function loadDataOverview() {
 
   for(const key of keys.slice(0, 30)) {
     const entry = entries[key];
-    const hasKY = entry.work && entry.work.length > 0;
-    const hasNippo = entry.nippo && entry.nippo.work && entry.nippo.work.length > 0;
+    const hasKY = (entry.workBlocks && entry.workBlocks.length > 0) || (entry.work && entry.work.length > 0);
+    const hasNippo = entry.nippo && ((entry.nippo.work && entry.nippo.work.length > 0) || (entry.nippo.workers && entry.nippo.workers.length > 0));
     html += '<tr>';
     html += '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-size:12px">' + key + '</td>';
     html += '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center">' + (hasKY ? '✅' : '—') + '</td>';

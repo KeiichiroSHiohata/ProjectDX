@@ -226,10 +226,13 @@ async function onDriveConnected(){
     }
   }else{
     // SUB-PAGE (Hazard_Assessment / Daily_Report): load data directly from saved IDs
+    console.log('[onDriveConnected] SUB-PAGE: currentFolderId=',currentFolderId,'currentProjectFileId=',currentProjectFileId);
     if(currentFolderId){
       await switchToFolder(currentFolderId);
     }else if(currentProjectFileId){
       await switchToLegacy(currentProjectFileId);
+    }else{
+      console.warn('[onDriveConnected] SUB-PAGE: No folder or project ID saved — cannot load data');
     }
   }
 
@@ -438,6 +441,7 @@ async function onProjectSelect(){
 }
 
 async function switchToFolder(folderId){
+  console.log('[switchToFolder] start, folderId=',folderId);
   if(driveReady&&(currentFolderId||currentProjectFileId)){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
@@ -446,6 +450,7 @@ async function switchToFolder(folderId){
   currentProjectFileId=null;
   driveFileId=null;
   const configId=await findFileInFolder(folderId, CONFIG_FILE_NAME);
+  console.log('[switchToFolder] configId=',configId);
   if(configId){
     const txt=await readFromDriveById(configId);
     if(txt){try{allData.config=JSON.parse(txt);}catch(e){allData.config={};}}
@@ -456,7 +461,9 @@ async function switchToFolder(folderId){
   if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
   const mk=getMonthKey();
   currentMonth=mk||currentMonth||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
+  console.log('[switchToFolder] loading month=',currentMonth);
   await loadMonthData(currentMonth);
+  console.log('[switchToFolder] entries loaded, keys=',Object.keys(allData.entries));
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
   showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');

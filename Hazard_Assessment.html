@@ -899,7 +899,7 @@ function restoreFormData(data){
   if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
   if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
 
-  // Restore work blocks
+  // Restore work blocks (supports both new format: category/item and old format: name/qty/unit)
   if(data.workBlocks){
     const wb=document.getElementById('workBlocks');
     wb.innerHTML='';
@@ -907,9 +907,10 @@ function restoreFormData(data){
       addWorkBlock();
       const lastBlock=wb.querySelector('.work-block:last-child');
       if(lastBlock){
-        lastBlock.querySelector('.wk-cat').value=block.category;
+        // New format uses category+item; old format uses name+qty+unit
+        lastBlock.querySelector('.wk-cat').value=block.category||'';
         onCategorySelect(lastBlock.querySelector('.wk-cat'));
-        lastBlock.querySelector('.wk-item').value=block.item;
+        lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
         if(block.hazards){
           block.hazards.forEach(haz=>{
             addHazard(lastBlock.querySelector('.btn-add-sm'));
@@ -927,12 +928,15 @@ function restoreFormData(data){
     });
   }
 
-  // Restore inspection
+  // Restore inspection (supports both '-' separator and old '_' separator)
   if(data.inspection){
     Object.entries(data.inspection).forEach(([key,val])=>{
-      const parts=key.split('-');
-      const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
-      if(cb)cb.checked=val;
+      const sep=key.includes('-')?'-':'_';
+      const parts=key.split(sep);
+      if(parts.length>=2){
+        const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
+        if(cb)cb.checked=val;
+      }
     });
   }
 
