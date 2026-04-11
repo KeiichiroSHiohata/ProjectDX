@@ -478,8 +478,6 @@ let HAZARD_DEFAULTS = {
 
 function opts(list,sel){return '<option value="">--</option>'+list.map(v=>`<option value="${v}"${v===sel?' selected':''}>${v}</option>`).join('')}
 
-const NIPPO_TEMPLATE_B64_GZ='H4sICJzO2WkAA+S9nOalreaXpeWgsS54bHN4AOyaB1CTa7uuKVIEKVJVqkoRQYICgqGJ2BAFlYX0BEGaVOkthKJiR0GJ0oIFIiBFpLcAESlBggQIVUBq6IQACaRs0NU8//7XAvbZc87es5iBPN/9ZTLzvlzf/dzvM7lowLxNgIG0WwFbcuJZnuYsLFNjQEFWLqQsRkzgLMgqrZVRX6gL1A5qlLbJ9K1i2Hu37A5U2dSEqRhOwF5qJ5nOGm3kLGBJ7R9fxU0pCHYN2P7dFHwxhOkwSmAXHnCdZdqxZLqquL0wOr1rVpw4qV4Ek3sPvSvF7YyKzJGvIh0I2nDhIUcE9n7K0VqCVKX79i5KJmQtF3F7NOZLRSE+0qGmgC9+HXt/gHVmEHOCvvV0Eu01O8g4LfUWpKLT1ydL5jtDzVCfWJNZPIc+gMhMWPvVBmLLglEILvWJVKOwLJp4KRQGNxGpd4SUCnvKCPKkL1dJQQ+GGZCH5jBpNqQ4Oik8D5vGLnKqP7D81JKVz8zb0y7kNkcsAjCyuEhBu0vqCVdVx6CYPIBd1B1yEyNmVD5OGr8W5FPIg+6+4z/0w6cSxHqcD5wPUXRdnvGtIBHh4xfn4MNUJDp1vhDkJkr4GZKJqlEr1sPL2F4OvFhVwXr5Vf8t4LJQjKV6aY+8iVDCc5qCc/F2h5GVVKZG0N8Vl6cPZNVA4qL0wAYH4LXxXf2qRZ4WC6VQYpqU12H9qnVGnI8N1cj0rSPo2L2lPLFdkVL+mV0r5W8Jv4nZgEk/m8OYxXzHDLMVqTkYFZlJ1w6BFzEPLwqxl7h+wnVWJvPVWzq0hy1l1ZW0VEBHBRRjIlXHxfcMUfPdzTLxN3KZDqHlF2cPLlVNVp+/gKH5lZRxV4Uxu6Gmo7l7wxzGvMvYNVyMdVQLCjCMOYr8VhW3MJLXLo0yjLw8u7tEeHwrMJYRfnzYI/RHVvCr3CQ/kB3q2A3kOg/tZlVlPFzfKbBGTg88Xq8jIxRxzN3gj8lFXEt5+p8vgvh3I3MfFqCDvwOkXZ7U/RXEMcB5x8iKg5p1X0Z2Vq0v6I+xaslzPrj5IWDtLXV9WJ8Ja1e/Q7KCGYN+r8zT/1Xjy8N8LWPmDKsJ0EI0ZfKzRKp3nrVDVQV8l7tJhQV2Q1jGjVAuquTk0Zfr2NnCu2G1ZfN8S9L14VqXqV9hBdKB1oXH7bPEMQMVoOQJ21T/hMVgbhkLSmvN1rIXDOFTVMQ+8PEsWOkRSVUZfLl+8Ty+fGNvLCHMOGjQZUeaJ5uG2LZ6j0tR3Oj9z+cUkJXoUKGAb2+JkzKtEbF0Q1IfFVVz51F4UNwqNZ+n9OV4x9qhd9bJVYNJGvEmPj5l5/wXzzpTDM+X1I8sHTGxC0AAqVCZMf3e8xEFiPWb39TxskZjl7be3wdPd1Yf3ox8clZjt5qe+7YLLU9WEcv/D058OjVqBePDVzoxfr1CtyTw4/eEXrh2PCRfqxfblM9Ofro7ZjHFYpwEOt3t4qenODoxYzHJ1CHYf3uSs2TExy1ueO7TzmM9ae3Od6XQsdA0uAA/8UAG+fFdAYY8/8AdUoCYjwzCQA=';
-
 // ============ Excel column mapping ============
 const ROW_STARTS=[7,9,11,13,15,17,19,21,23,25];
 const COL={A:1,R:18,W:23,Z:26,AQ:43,AT:46,AW:49,AZ:52,BC:55};
@@ -3035,13 +3033,34 @@ async function copyPrevDayNippo(){
 }
 
 // ============ 日報Excel出力 (JSZip+テンプレート) ============
+let _nippoTmplCache=null; // テンプレートキャッシュ（ArrayBuffer）
+
+function pickNippoTemplate(){
+  return new Promise((resolve)=>{
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.xlsx,.xls';
+    inp.style.display='none';
+    inp.onchange=()=>{
+      if(!inp.files||!inp.files[0]){resolve(null);return;}
+      const reader=new FileReader();
+      reader.onload=()=>{resolve(reader.result);};
+      reader.onerror=()=>{resolve(null);};
+      reader.readAsArrayBuffer(inp.files[0]);
+    };
+    // キャンセル対応
+    inp.addEventListener('cancel',()=>resolve(null));
+    document.body.appendChild(inp);
+    inp.click();
+    document.body.removeChild(inp);
+  });
+}
+
 async function exportNippoExcel(){
   const btn=document.querySelector('#screenNippo .submit-btn');
   const msg=document.getElementById('statusMsgNippo');
 
   try{
     if(btn)btn.disabled=true;
-    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
 
     const data=collectNippoData();
     const pName=document.getElementById('projectName').textContent||'';
@@ -3049,20 +3068,19 @@ async function exportNippoExcel(){
     const dateVal=document.getElementById('workDate').value;
     if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
 
-    // 埋め込みテンプレート(gzip圧縮Base64)からバイナリ復元
-    if(typeof NIPPO_TEMPLATE_B64_GZ==='undefined'||!NIPPO_TEMPLATE_B64_GZ){
-      alert('作業日報テンプレートが読み込まれていません。');
-      if(btn)btn.disabled=false;return;
+    // テンプレート取得（キャッシュ付き）
+    if(!_nippoTmplCache){
+      if(msg){msg.textContent='📂 作業日報.xlsx テンプレートを選択してください';msg.className='status-msg loading';}
+      const ab=await pickNippoTemplate();
+      if(!ab){
+        if(msg){msg.textContent='テンプレートが選択されませんでした';msg.className='status-msg err';}
+        if(btn)btn.disabled=false;return;
+      }
+      _nippoTmplCache=ab;
     }
-    const gzBin=atob(NIPPO_TEMPLATE_B64_GZ);
-    const gzBuf=new Uint8Array(gzBin.length);
-    for(let i=0;i<gzBin.length;i++)gzBuf[i]=gzBin.charCodeAt(i);
-    // DecompressionStreamでgzip展開
-    const ds=new DecompressionStream('gzip');
-    const writer=ds.writable.getWriter();
-    writer.write(gzBuf);writer.close();
-    const decompressed=await new Response(ds.readable).arrayBuffer();
-    const tmplBuf=new Uint8Array(decompressed);
+    const tmplBuf=new Uint8Array(_nippoTmplCache);
+
+    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
 
     // JSZipでテンプレート解析
     const zip=await JSZip.loadAsync(tmplBuf);
