@@ -2841,8 +2841,8 @@ function addNippoWorker(data){
     <div class="nippo-row">
       <div class="fg f1"><label>所属</label><select class="nwk-company" onchange="updateNippoNameOpts(this.closest('.nippo-block'));autoSaveNippo()">${compOpts}</select></div>
       <div class="fg f2"><label>氏名</label><select class="nwk-name" onchange="autoSaveNippo()"><option value="">-- 氏名を選択 --</option></select></div>
-      <div class="fg w90"><label>開始</label><input type="time" class="nwk-start" value="${data&&data.start||''}" onchange="autoSaveNippo()"></div>
-      <div class="fg w90"><label>終了</label><input type="time" class="nwk-end" value="${data&&data.end||''}" onchange="autoSaveNippo()"></div>
+      <div class="fg w90"><label>開始</label><input type="time" class="nwk-start" value="${data&&data.start||'08:00'}" onchange="autoSaveNippo()"></div>
+      <div class="fg w90"><label>終了</label><input type="time" class="nwk-end" value="${data&&data.end||'17:00'}" onchange="autoSaveNippo()"></div>
     </div>`;
 
   // 氏名プルダウンを初期設定
@@ -3032,13 +3032,39 @@ async function copyPrevDayNippo(){
   showConfigStatus('📋 前日の日報データをコピーしました');
 }
 
-// ============ 日報Excel出力 (SheetJS) ============
-function exportNippoExcel(){
+// ============ 日報Excel出力 (JSZip+テンプレート) ============
+let nippoTemplateFileId=null; // キャッシュ
+
+async function findNippoTemplate(){
+  if(nippoTemplateFileId) return nippoTemplateFileId;
+  try{
+    // 共有ドライブ含めて検索
+    const resp=await gapi.client.drive.files.list({
+      q:"name='作業日報.xlsx' and trashed=false",
+      fields:'files(id,name)',spaces:'drive',
+      includeItemsFromAllDrives:true,supportsAllDrives:true,corpora:'allDrives'
+    });
+    const files=resp.result.files||[];
+    if(files.length>0){nippoTemplateFileId=files[0].id;return nippoTemplateFileId;}
+  }catch(e){console.error('template search error',e);}
+  return null;
+}
+
+async function downloadNippoTemplate(fileId){
+  const resp=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{
+    headers:{Authorization:'Bearer '+driveAccessToken}
+  });
+  if(!resp.ok) throw new Error('テンプレートのダウンロードに失敗しました ('+resp.status+')');
+  return await resp.arrayBuffer();
+}
+
+async function exportNippoExcel(){
   const btn=document.querySelector('#screenNippo .submit-btn');
   const msg=document.getElementById('statusMsgNippo');
+
   try{
     if(btn)btn.disabled=true;
-    if(msg){msg.textContent='Excel出力中…';msg.className='status-msg loading';}
+    if(msg){msg.textContent='⏳ テンプレートを読込中…';msg.className='status-msg loading';}
 
     const data=collectNippoData();
     const pName=document.getElementById('projectName').textContent||'';
@@ -3046,150 +3072,203 @@ function exportNippoExcel(){
     const dateVal=document.getElementById('workDate').value;
     if(!dateVal){alert('日付を選択してください');if(btn)btn.disabled=false;return;}
 
+    // テンプレート取得
+    const tmplId=await findNippoTemplate();
+    if(!tmplId){
+      alert('Google Drive上に「作業日報.xlsx」テンプレートが見つかりません。\n共有ドライブにテンプレートを配置してください。');
+      if(btn)btn.disabled=false;return;
+    }
+    const tmplBuf=await downloadNippoTemplate(tmplId);
+
+    if(msg){msg.textContent='⏳ Excelファイルを生成中…';msg.className='status-msg loading';}
+
+    // JSZipでテンプレート解析
+    const zip=await JSZip.loadAsync(tmplBuf);
+    const SP='xl/worksheets/sheet1.xml';
+    const xmlStr=await zip.file(SP).async('string');
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(xmlStr,'application/xml');
+    const ns=doc.documentElement.namespaceURI;
+
+    // --- ヘルパー関数（KY exportExcelと同じパターン） ---
+    function getRow(r){
+      const sd=doc.getElementsByTagNameNS(ns,'sheetData')[0];
+      const rows=sd.getElementsByTagNameNS(ns,'row');
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))===r)return rows[i];}
+      const nr=doc.createElementNS(ns,'row');nr.setAttribute('r',String(r));
+      for(let i=0;i<rows.length;i++){if(parseInt(rows[i].getAttribute('r'))>r){sd.insertBefore(nr,rows[i]);return nr;}}
+      sd.appendChild(nr);return nr;
+    }
+    function getCell(r,c){
+      const ref=cRef(r,c);
+      const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){if(cells[i].getAttribute('r')===ref)return cells[i];}
+      const nc=doc.createElementNS(ns,'c');nc.setAttribute('r',ref);
+      const cIdx=c;
+      for(let i=0;i<cells.length;i++){
+        const cr=cells[i].getAttribute('r');
+        const ec=cr.replace(/[0-9]/g,'');
+        let ei=0;for(let j=0;j<ec.length;j++)ei=ei*26+(ec.charCodeAt(j)-64);
+        if(ei>cIdx){rowEl.insertBefore(nc,cells[i]);return nc;}
+      }
+      rowEl.appendChild(nc);return nc;
+    }
+    function clearCellContent(cell){
+      while(cell.firstChild)cell.removeChild(cell.firstChild);
+      cell.removeAttribute('t');
+    }
+    function setNum(r,c,val){
+      const cell=getCell(r,c);clearCellContent(cell);
+      const v=doc.createElementNS(ns,'v');v.textContent=String(val);
+      cell.appendChild(v);
+    }
+    function setStr(r,c,text){
+      if(!text){clearVal(r,c);return;}
+      const cell=getCell(r,c);clearCellContent(cell);
+      cell.setAttribute('t','inlineStr');
+      const is=doc.createElementNS(ns,'is');
+      const t=doc.createElementNS(ns,'t');
+      t.textContent=text;is.appendChild(t);cell.appendChild(is);
+    }
+    function clearVal(r,c){
+      const ref=cRef(r,c);const rowEl=getRow(r);
+      const cells=rowEl.getElementsByTagNameNS(ns,'c');
+      for(let i=0;i<cells.length;i++){
+        if(cells[i].getAttribute('r')===ref){clearCellContent(cells[i]);return;}
+      }
+    }
+
+    // === 基本情報 ===
+    setStr(3,6,pName);        // F3: 工事名
+    setStr(3,59,creator);     // BG3: 作成者
+
+    // 日付 (令和)
     const dd=new Date(dateVal+'T00:00:00');
     const era=dd.getFullYear()-2018;
+    const mo=dd.getMonth()+1, da=dd.getDate();
     const dow=['日','月','火','水','木','金','土'][dd.getDay()];
-    const dateDisp=`令和${era}年${dd.getMonth()+1}月${dd.getDate()}日（${dow}）`;
+    setNum(3,74,era);   // BV3: 令和X年
+    setNum(3,78,mo);    // BZ3: X月
+    setNum(3,82,da);    // CD3: X日
+    setStr(3,86,dow);   // CH3: 曜日
 
-    // SheetJSでワークブック生成
-    const wb=XLSX.utils.book_new();
-    const wsData=[];
-
-    // --- Row 1-2: 空行 ---
-    wsData.push([]);wsData.push([]);
-
-    // --- Row 3: 工事名 + 作成者 + 日付 ---
-    const row3=[];row3[0]='工事名：';row3[5]=pName;
-    row3[53]='作成者：';row3[58]=creator;
-    row3[70]=dateDisp;
-    wsData.push(row3);wsData.push([]);
-
-    // --- Row 5-6: ヘッダー ---
-    const row5=[];
-    row5[0]='実施作業';row5[2]='名称';row5[22]='数量';row5[26]='単位';
-    row5[30]='作業従事者';row5[32]='氏名';row5[40]='開始';row5[45]='終了';row5[50]='所属';
-    row5[61]='氏名';row5[69]='開始';row5[74]='終了';row5[79]='所属';
-    wsData.push(row5);wsData.push([]);
-
-    // --- Row 7-24: 作業・従事者データ (9 slots, 2行ずつ) ---
-    const workRows=[6,8,10,12,14,16,18,20,22]; // 0-indexed
+    // === 実施作業 (rows 7,9,11,13,15,17,19,21,23 — 名前C3, 数量C23, 単位C27) ===
+    const nippoWorkRows=[7,9,11,13,15,17,19,21,23];
     for(let i=0;i<9;i++){
-      const r=[];
-      // 実施作業
+      const r=nippoWorkRows[i];
       if(data.work[i]){
-        r[2]=data.work[i].name||'';
-        r[22]=data.work[i].qty?parseFloat(data.work[i].qty):'';
-        r[26]=data.work[i].unit||'';
+        setStr(r,3,data.work[i].name||'');
+        if(data.work[i].qty){
+          const qn=parseFloat(data.work[i].qty);
+          if(!isNaN(qn))setNum(r,23,qn);else setStr(r,23,data.work[i].qty);
+        }else{clearVal(r,23);}
+        setStr(r,27,data.work[i].unit||'');
+      }else{
+        clearVal(r,3);clearVal(r,23);clearVal(r,27);
       }
-      // 従事者 グループ1
-      if(data.workers[i]){
-        r[32]=data.workers[i].name||'';
-        r[40]=data.workers[i].start||'';
-        r[45]=data.workers[i].end||'';
-        r[50]=data.workers[i].company||'';
-      }
-      // 従事者 グループ2
-      if(data.workers[i+9]){
-        r[61]=data.workers[i+9].name||'';
-        r[69]=data.workers[i+9].start||'';
-        r[74]=data.workers[i+9].end||'';
-        r[79]=data.workers[i+9].company||'';
-      }
-      wsData.push(r);wsData.push([]);
     }
 
-    // --- Row 25-26: 搬入材料ヘッダー ---
-    const row25=[];
-    row25[0]='搬入材料';row25[2]='名称';row25[12]='規格';row25[20]='数量';
-    row25[24]='名称';row25[34]='規格';row25[42]='数量';
-    row25[46]='名称';row25[56]='規格';row25[64]='数量';
-    row25[68]='名称';row25[78]='規格';row25[86]='数量';
-    wsData.push(row25);wsData.push([]);
+    // === 作業従事者 グループ1 (rows 7,9,11,13,15,17,19,21,23 — 名C33, 開始C41, 終了C46, 所属C51) ===
+    for(let i=0;i<9;i++){
+      const r=nippoWorkRows[i];
+      if(data.workers[i]){
+        setStr(r,33,data.workers[i].name||'');
+        setStr(r,41,data.workers[i].start||'');
+        setStr(r,46,data.workers[i].end||'');
+        setStr(r,51,data.workers[i].company||'');
+      }else{
+        clearVal(r,33);clearVal(r,41);clearVal(r,46);clearVal(r,51);
+      }
+    }
 
-    // --- Row 27-34: 搬入材料データ (4 rows × 4 column groups) ---
-    const matColG=[{n:2,s:12,q:20},{n:24,s:34,q:42},{n:46,s:56,q:64},{n:68,s:78,q:86}];
+    // === 作業従事者 グループ2 (rows 7,9,11,13,15,17,19,21,23 — 名C62, 開始C70, 終了C75, 所属C80) ===
+    for(let i=0;i<9;i++){
+      const r=nippoWorkRows[i];
+      const wi=i+9;
+      if(data.workers[wi]){
+        setStr(r,62,data.workers[wi].name||'');
+        setStr(r,70,data.workers[wi].start||'');
+        setStr(r,75,data.workers[wi].end||'');
+        setStr(r,80,data.workers[wi].company||'');
+      }else{
+        clearVal(r,62);clearVal(r,70);clearVal(r,75);clearVal(r,80);
+      }
+    }
+
+    // === 搬入材料 (rows 27,29,31,33 × 4 column groups) ===
+    const matRows=[27,29,31,33];
+    const matColGroups=[{n:3,s:13,q:21},{n:25,s:35,q:43},{n:47,s:57,q:65},{n:69,s:79,q:87}];
     for(let ri=0;ri<4;ri++){
-      const r=[];
+      const r=matRows[ri];
       for(let ci=0;ci<4;ci++){
         const idx=ci*4+ri;
+        const cols=matColGroups[ci];
         if(data.materials[idx]){
-          const cols=matColG[ci];
-          r[cols.n]=data.materials[idx].name||'';
-          r[cols.s]=data.materials[idx].spec||'';
-          r[cols.q]=data.materials[idx].qty?parseFloat(data.materials[idx].qty):'';
+          setStr(r,cols.n,data.materials[idx].name||'');
+          setStr(r,cols.s,data.materials[idx].spec||'');
+          if(data.materials[idx].qty){
+            const qn=parseFloat(data.materials[idx].qty);
+            if(!isNaN(qn))setNum(r,cols.q,qn);else setStr(r,cols.q,data.materials[idx].qty);
+          }else{clearVal(r,cols.q);}
+        }else{
+          clearVal(r,cols.n);clearVal(r,cols.s);clearVal(r,cols.q);
         }
       }
-      wsData.push(r);wsData.push([]);
     }
 
-    // --- Row 35-44: 指摘・要望・苦情等 ---
-    const row35=[];row35[0]='指摘・要望・苦情等';row35[70]='区分';
-    wsData.push(row35);wsData.push([]);
+    // === 指摘・要望・苦情等 (rows 37,39,41,43 — text C1, category checkboxes) ===
+    const complRows=[37,39,41,43];
+    const catColMap={安全:71,品質:76,環境:81,その他:86};
     for(let i=0;i<4;i++){
-      const r=[];
+      const r=complRows[i];
       if(data.complaints[i]){
-        r[0]=data.complaints[i].text||'';
-        const catMap={安全:70,品質:75,環境:80,その他:85};
-        if(data.complaints[i].cat){
-          const cpos=catMap[data.complaints[i].cat];
-          if(cpos!==undefined) r[cpos]='✓ '+data.complaints[i].cat;
+        setStr(r,1,data.complaints[i].text||'');
+        // カテゴリチェック — 全クリアしてからセット
+        for(const cc of Object.values(catColMap)) clearVal(r,cc);
+        if(data.complaints[i].cat && catColMap[data.complaints[i].cat]!==undefined){
+          setStr(r,catColMap[data.complaints[i].cat],'✓');
         }
+      }else{
+        clearVal(r,1);
+        for(const cc of Object.values(catColMap)) clearVal(r,cc);
       }
-      wsData.push(r);wsData.push([]);
     }
 
-    // --- Row 45-58: 環境負荷低減策 ---
-    const envItems=[
-      '環境負荷低減策','','',
-      '','','','','','','','','','','','','','','',
-      '','','','','','','','','','','','','','','','','','','',
-      '','','','','','','','','','','','','','','','',''
-    ];
-    const row45=[];row45[0]='環境負荷低減策';
-    wsData.push(row45);wsData.push([]);
-
-    const envNames={
-      1:'作業中・後の清掃',2:'お知らせの配布',3:'塩化カルシウムの散布',
-      4:'散水',5:'飛散防止ネットの設置',6:'周辺構造物の養生',
-      7:'沈殿槽の設置',8:'汚濁防止フェンスの設置',9:'防音ネットの設置',
-      10:'足場養生シートの設置',11:'法面養生シートの設置',12:'仮排水の設置',
-      13:'防塵ネットの設置',14:'河川・道路の清掃活動'
+    // === 環境負荷低減策 (checkbox positions) ===
+    // Items 1-6: {r:47,c:17}, {r:49,c:17}, {r:51,c:17}, {r:53,c:17}, {r:55,c:17}, {r:57,c:17}
+    // Item 7:    {r:45,c:35}
+    // Items 8-13:{r:47,c:35}, {r:49,c:35}, {r:51,c:35}, {r:53,c:35}, {r:55,c:35}, {r:57,c:35}
+    // Item 14:   {r:45,c:53}
+    const envPositions={
+      1:{r:47,c:17}, 2:{r:49,c:17}, 3:{r:51,c:17}, 4:{r:53,c:17}, 5:{r:55,c:17}, 6:{r:57,c:17},
+      7:{r:45,c:35}, 8:{r:47,c:35}, 9:{r:49,c:35}, 10:{r:51,c:35}, 11:{r:53,c:35}, 12:{r:55,c:35}, 13:{r:57,c:35},
+      14:{r:45,c:53}
     };
-    // 左列: 1-6, 中列: 7-13, 右列: 14
-    for(let ri=0;ri<7;ri++){
-      const r=[];
-      const leftIdx=ri+1;
-      const midIdx=ri+7;
-      if(leftIdx<=6){
-        const chk=data.envMeasures.includes(leftIdx)?'✓':'□';
-        r[0]=leftIdx;r[2]=`${chk} ${envNames[leftIdx]}`;
+    for(let i=1;i<=14;i++){
+      const pos=envPositions[i];
+      if(data.envMeasures.includes(i)){
+        setStr(pos.r,pos.c,'✓');
+      }else{
+        clearVal(pos.r,pos.c);
       }
-      if(midIdx<=13){
-        const chk=data.envMeasures.includes(midIdx)?'✓':'□';
-        r[18]=midIdx;r[20]=`${chk} ${envNames[midIdx]}`;
-      }
-      if(ri===0){
-        const chk14=data.envMeasures.includes(14)?'✓':'□';
-        r[36]=14;r[38]=`${chk14} ${envNames[14]}`;
-      }
-      wsData.push(r);wsData.push([]);
     }
 
-    const ws=XLSX.utils.aoa_to_sheet(wsData);
+    // === XMLを書き戻し ===
+    const ser=new XMLSerializer();
+    let newXml=ser.serializeToString(doc);
+    if(!newXml.startsWith('<?xml'))newXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+newXml;
+    zip.file(SP,newXml);
 
-    // 列幅設定
-    ws['!cols']=[];
-    for(let i=0;i<90;i++) ws['!cols'].push({wch:2});
-    // 名称列を広めに
-    ws['!cols'][2]={wch:16};ws['!cols'][32]={wch:12};ws['!cols'][61]={wch:12};
-
-    XLSX.utils.book_append_sheet(wb,ws,'作業日報');
-
-    // ダウンロード
+    // === ダウンロード ===
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const dateStr=dateVal.replace(/-/g,'');
     const safeName=(pName||'作業日報').replace(/[\\/:*?"<>|]/g,'_');
     const fileName=`作業日報_${safeName}_${dateStr}.xlsx`;
-    XLSX.writeFile(wb,fileName);
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 
     if(msg){msg.textContent='✅ '+fileName+' をダウンロードしました';msg.className='status-msg ok';}
   }catch(e){
