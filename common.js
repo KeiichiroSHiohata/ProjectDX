@@ -439,7 +439,12 @@ async function loadMasterData(){
     if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
     if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
     if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
-    if(!masterData.workers)masterData.workers=[];
+    // 常にハードコードの M["作業者"] で workers を上書き（Drive上の古いリストを修正）
+    masterData.workers=M["作業者"].map(name=>{
+      // 既存のcompany情報があれば保持
+      const existing=(masterData.workers||[]).find(w=>w.name===name);
+      return {name, company:existing?existing.company:''};
+    });
     if(!masterData.workCategories)masterData.workCategories=[];
     // 旧形式 workItems がある場合は workCategories に移行
     if(masterData.workItems&&masterData.workItems.length>0&&(!masterData.workCategories||masterData.workCategories.length===0)){
@@ -473,6 +478,8 @@ async function loadMasterData(){
         }
       });
     }
+    // workers を上書きしたので Drive にも反映
+    await saveMasterData();
   }catch(e){
     showConfigStatus('❌ マスタデータ解析エラー: '+e.message);
   }
