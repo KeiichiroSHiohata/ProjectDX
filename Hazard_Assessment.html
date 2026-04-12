@@ -963,8 +963,7 @@ function collectFormData(){
 }
 
 // ============ Form Clear & Restore ============
-function clearForm(){
-  if(!confirm('フォームをクリアしますか？'))return;
+function resetFormFields(){
   document.getElementById('workBlocks').innerHTML='';
   document.getElementById('notice').value='';
   document.getElementById('safetyGoal').value='足元よし!!';
@@ -972,11 +971,16 @@ function clearForm(){
   document.querySelectorAll('[data-i][data-k]').forEach(cb=>cb.checked=false);
   sigData={};
   renderSigs();
+}
+function clearForm(){
+  if(!confirm('フォームをクリアしますか？'))return;
+  resetFormFields();
   autoSave();
 }
 
 function restoreFormData(data){
   if(!data)return;
+  resetFormFields();
   if(data.workDate) document.getElementById('workDate').value=data.workDate;
   if(data.creator) document.getElementById('creator').value=data.creator;
   if(data.notice) document.getElementById('notice').value=data.notice;
@@ -986,7 +990,6 @@ function restoreFormData(data){
   // Restore work blocks (supports both new format: category/item and old format: name/qty/unit)
   if(data.workBlocks){
     const wb=document.getElementById('workBlocks');
-    wb.innerHTML='';
     data.workBlocks.forEach(block=>{
       addWorkBlock();
       const lastBlock=wb.querySelector('.work-block:last-child');
@@ -1033,11 +1036,10 @@ function restoreFormData(data){
 
 function onDateChange(){
   autoSave();
+  resetFormFields();
   const dk=getDateKey();
   if(dk&&allData.entries[dk]){
     restoreFormData(allData.entries[dk]);
-  }else{
-    clearForm();
   }
 }
 
