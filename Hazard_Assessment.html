@@ -972,6 +972,7 @@ function collectFormData(){
   });
 
   // Collect signatures（深いコピーで保存。参照共有による日付間データ混在を防止）
+  data.sigCount=parseInt(document.getElementById('sigCount').value)||4;
   data.signatures=JSON.parse(JSON.stringify(sigData));
 
   return data;
@@ -1043,7 +1044,10 @@ function restoreFormData(data){
       });
     }
 
-    // Restore signatures
+    // Restore signatures（sigCountを先に復元してからrenderSigsを呼ぶ）
+    if(data.sigCount){
+      document.getElementById('sigCount').value=data.sigCount;
+    }
     if(data.signatures){
       sigData={...data.signatures};
       renderSigs();
@@ -1128,8 +1132,8 @@ function onPageReady(){
     restoreFormData(allData.entries[dk]);
   }else{
     dbg(`HA.onPageReady: NO data for dateKey ${dk}`);
+    renderSigs(); // データがない場合のみ初期署名欄を表示
   }
-  renderSigs();
   document.querySelectorAll('#workBlocks input, #workBlocks select, #workBlocks textarea').forEach(el=>{
     el.addEventListener('change',autoSave);
   });

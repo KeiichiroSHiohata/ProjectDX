@@ -1590,10 +1590,16 @@ function saveSession(){
 }
 
 // ============ Page Navigation ============
-function navigateTo(page){
+async function navigateTo(page){
   // Save any pending form data first
-  if(typeof autoSave==='function') autoSave();
-  if(typeof autoSaveNippo==='function') autoSaveNippo();
+  try{ if(typeof autoSave==='function') autoSave(); }catch(e){}
+  try{ if(typeof autoSaveNippo==='function') autoSaveNippo(); }catch(e){}
+  // Drive保存タイマーをキャンセルし、即座にDriveへ保存
+  clearTimeout(dataFileSaveTm);
+  if(isDriveConnected()){
+    try{ await saveCurrentMonth(true); }catch(e){ console.error('navigateTo save error:',e); }
+    try{ await saveProjectConfig(); }catch(e){}
+  }
   // Persist session state to sessionStorage before leaving
   saveSession();
   window.location.href=page;
