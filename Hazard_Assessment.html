@@ -501,21 +501,31 @@ function confirmSign(){
   autoSave();
 }
 
+let sigCanvasInited=false;
 function initModalCanvas(){
   const canvas=document.getElementById('sigCanvas');
   const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.lineCap='round';
   ctx.lineJoin='round';
   ctx.lineWidth=3;
   ctx.strokeStyle='#000';
-  let isDrawing=false;
-  canvas.addEventListener('mousedown',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo(e.clientX-rect.left,e.clientY-rect.top);});
-  canvas.addEventListener('mousemove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();ctx.lineTo(e.clientX-rect.left,e.clientY-rect.top);ctx.stroke();});
-  canvas.addEventListener('mouseup',()=>{isDrawing=false;});
-  canvas.addEventListener('touchstart',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.beginPath();ctx.moveTo(t.clientX-rect.left,t.clientY-rect.top);});
-  canvas.addEventListener('touchmove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-rect.left,t.clientY-rect.top);ctx.stroke();});
-  canvas.addEventListener('touchend',()=>{isDrawing=false;});
-  if(sigData[currentSigId]?.png){ctx.drawImage(new Image(),0,0);}
+  if(!sigCanvasInited){
+    let isDrawing=false;
+    canvas.addEventListener('mousedown',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo(e.clientX-rect.left,e.clientY-rect.top);});
+    canvas.addEventListener('mousemove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();ctx.lineTo(e.clientX-rect.left,e.clientY-rect.top);ctx.stroke();});
+    canvas.addEventListener('mouseup',()=>{isDrawing=false;});
+    canvas.addEventListener('touchstart',(e)=>{e.preventDefault();isDrawing=true;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.beginPath();ctx.moveTo(t.clientX-rect.left,t.clientY-rect.top);});
+    canvas.addEventListener('touchmove',(e)=>{e.preventDefault();if(!isDrawing)return;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-rect.left,t.clientY-rect.top);ctx.stroke();});
+    canvas.addEventListener('touchend',()=>{isDrawing=false;});
+    sigCanvasInited=true;
+  }
+  // 既存の署名があれば表示
+  if(sigData[currentSigId]?.png){
+    const img=new Image();
+    img.onload=()=>{ctx.drawImage(img,0,0);};
+    img.src=sigData[currentSigId].png;
+  }
 }
 
 function getSigPNG(){
@@ -1036,7 +1046,6 @@ function restoreFormData(data){
 }
 
 function onDateChange(){
-  autoSave();
   resetFormFields();
   const dk=getDateKey();
   if(dk&&allData.entries[dk]){

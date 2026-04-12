@@ -192,9 +192,14 @@ async function shiftDate(delta){
   if(typeof autoSaveNippo==='function' && document.getElementById('nippoWorkBlocks')) autoSaveNippo();
   const inp=document.getElementById('workDate');
   if(!inp) return;
+  const oldMonth=currentMonth;
   const d=inp.value?new Date(inp.value+'T00:00:00'):new Date();
   d.setDate(d.getDate()+delta);
   inp.value=localDateStr(d);
+  const newMonth=getMonthKey();
+  if(newMonth && oldMonth && newMonth!==oldMonth && currentFolderId){
+    await switchMonth(newMonth);
+  }
   if(typeof onDateChange==='function') await onDateChange();
 }
 
