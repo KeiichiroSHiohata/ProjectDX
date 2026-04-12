@@ -432,6 +432,7 @@ let currentSigId=null;
 function renderSigs(){
   const count=parseInt(document.getElementById('sigCount').value)||1;
   const grid=document.getElementById('sigGrid');
+  grid.innerHTML='';
   const oldData={...sigData};
   sigData={};
   for(let i=0;i<count;i++){
