@@ -334,7 +334,7 @@ async function onDriveConnected(){
     dbg('onDriveConnected: re-calling onPageReady() to refresh UI');
     onPageReady();
   }
-  showDebugPanel();
+  // showDebugPanel(); // デバッグパネル無効化
 }
 
 // ============ Drive 低レベルヘルパー ============
@@ -1465,12 +1465,23 @@ async function initCommon(){
     dbg(`initCommon: session restored - folderId=${currentFolderId}, month=${currentMonth}, entries=${Object.keys(allData.entries).length}, entryKeys=[${Object.keys(allData.entries).join(',')}]`);
   }
 
-  // 2) SUB-PAGE FAST PATH: show UI instantly from cache, then connect in background
-  if(!isHomePage && savedToken && currentFolderId){
-    dbg('initCommon: SUB-PAGE FAST PATH');
+  // 2) FAST PATH: show UI instantly from sessionStorage cache
+  if(savedToken && currentFolderId){
+    dbg('initCommon: FAST PATH (cache available)');
     // Apply cached master data to UI selects
     refreshAllHazardSelects();
     refreshCreatorSelect();
+    // ホーム画面: sessionStorageの工事名とプロジェクトリストを即座に反映
+    if(isHomePage){
+      const pnEl=document.getElementById('projectName');
+      if(pnEl&&allData.config?.projectName) pnEl.textContent=allData.config.projectName;
+      const sel=document.getElementById('projectSelect');
+      if(sel&&projectList.length>0){
+        sel.innerHTML='<option value="">-- 工事を選択 --</option>';
+        projectList.forEach(p=>{ sel.innerHTML+=`<option value="${p.id}">${p.name}</option>`; });
+        if(currentFolderId) sel.value=currentFolderId;
+      }
+    }
     // Mark as ready so onPageReady can display data
     driveReady=true;
     // Show UI immediately
@@ -1478,10 +1489,12 @@ async function initCommon(){
       dbg('initCommon: calling onPageReady()');
       onPageReady();
     }
-    // Connect to Drive API in background (for auto-save)
-    connectDriveBackground();
-    showDebugPanel();
-    return;
+    if(!isHomePage){
+      // サブページはバックグラウンドでDrive接続
+      connectDriveBackground();
+      return;
+    }
+    // ホーム画面はフル初期化も続行（プロジェクト一覧更新のため）
   }
 
   // 3) HOME PAGE or FIRST VISIT: full initialization
@@ -1518,7 +1531,7 @@ async function initCommon(){
   // 5) Page-specific init
   dbg('initCommon: step5 - calling onPageReady, entries='+Object.keys(allData.entries).length);
   if(typeof onPageReady==='function') onPageReady();
-  showDebugPanel();
+  // showDebugPanel(); // デバッグパネル無効化
 }
 
 // Background Drive connection for sub-pages (non-blocking)
