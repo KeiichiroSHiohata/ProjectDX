@@ -996,59 +996,63 @@ function clearForm(){
 function restoreFormData(data){
   if(!data)return;
   _restoring=true; // autoSave抑制開始
-  resetFormFields();
-  if(data.workDate) document.getElementById('workDate').value=data.workDate;
-  if(data.creator) document.getElementById('creator').value=data.creator;
-  if(data.notice) document.getElementById('notice').value=data.notice;
-  if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
-  if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
+  try{
+    resetFormFields();
+    // workDateは復元しない（日付ナビゲーションで設定済みの値を維持する）
+    if(data.creator) document.getElementById('creator').value=data.creator;
+    if(data.notice) document.getElementById('notice').value=data.notice;
+    if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
+    if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
 
-  // Restore work blocks (supports both new format: category/item and old format: name/qty/unit)
-  if(data.workBlocks){
-    const wb=document.getElementById('workBlocks');
-    data.workBlocks.forEach(block=>{
-      addWorkBlock();
-      const lastBlock=wb.querySelector('.work-block:last-child');
-      if(lastBlock){
-        // New format uses category+item; old format uses name+qty+unit
-        lastBlock.querySelector('.wk-cat').value=block.category||'';
-        onCategorySelect(lastBlock.querySelector('.wk-cat'));
-        lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
-        if(block.hazards){
-          const wkId=lastBlock.getAttribute('data-wk-id');
-          const hazDiv=lastBlock.querySelector(`#hazards-${wkId}`);
-          if(hazDiv) hazDiv.innerHTML='';
-          block.hazards.forEach(haz=>{
-            addHazardRow(hazDiv, {
-              hazard: haz.hazard||'',
-              severity: haz.severity||'',
-              frequency: haz.frequency||'',
-              measure: haz.measure||''
+    // Restore work blocks
+    if(data.workBlocks){
+      const wb=document.getElementById('workBlocks');
+      data.workBlocks.forEach(block=>{
+        addWorkBlock();
+        const lastBlock=wb.querySelector('.work-block:last-child');
+        if(lastBlock){
+          lastBlock.querySelector('.wk-cat').value=block.category||'';
+          onCategorySelect(lastBlock.querySelector('.wk-cat'));
+          lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
+          if(block.hazards){
+            const wkId=lastBlock.getAttribute('data-wk-id');
+            const hazDiv=lastBlock.querySelector(`#hazards-${wkId}`);
+            if(hazDiv) hazDiv.innerHTML='';
+            block.hazards.forEach(haz=>{
+              addHazardRow(hazDiv, {
+                hazard: haz.hazard||'',
+                severity: haz.severity||'',
+                frequency: haz.frequency||'',
+                measure: haz.measure||''
+              });
             });
-          });
+          }
         }
-      }
-    });
-  }
+      });
+    }
 
-  // Restore inspection (supports both '-' separator and old '_' separator)
-  if(data.inspection){
-    Object.entries(data.inspection).forEach(([key,val])=>{
-      const sep=key.includes('-')?'-':'_';
-      const parts=key.split(sep);
-      if(parts.length>=2){
-        const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
-        if(cb)cb.checked=val;
-      }
-    });
-  }
+    // Restore inspection
+    if(data.inspection){
+      Object.entries(data.inspection).forEach(([key,val])=>{
+        const sep=key.includes('-')?'-':'_';
+        const parts=key.split(sep);
+        if(parts.length>=2){
+          const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
+          if(cb)cb.checked=val;
+        }
+      });
+    }
 
-  // Restore signatures
-  if(data.signatures){
-    sigData={...data.signatures};
-    renderSigs();
+    // Restore signatures
+    if(data.signatures){
+      sigData={...data.signatures};
+      renderSigs();
+    }
+  }catch(e){
+    console.error('restoreFormData error:',e);
+  }finally{
+    _restoring=false; // エラーが起きても必ずフラグを解除
   }
-  _restoring=false; // autoSave抑制解除
 }
 
 function onDateChange(){
@@ -1075,12 +1079,16 @@ async function copyPrevDay(){
 
 async function doCopyPrevDay(prevKey){
   const prevData=allData.entries[prevKey];
+  const curDate=document.getElementById('workDate').value;
   const curKey=getDateKey();
-  // 署名欄はコピーしない（署名は日ごとに行うため）
+  // 署名・日付はコピーしない（当日の日付を維持、署名は日ごとに行うため）
   const copyData={...prevData};
   delete copyData.signatures;
+  delete copyData.workDate;
   allData.entries[curKey]={...copyData};
   restoreFormData(copyData);
+  // 日付を当日に戻す（restoreFormDataで変更されないが念のため）
+  document.getElementById('workDate').value=curDate;
   autoSave();
 }
 
@@ -1089,17 +1097,19 @@ let _restoring=false; // restoreFormData中はautoSaveを抑制
 function autoSave(){
   if(_restoring)return; // 復元中は保存しない（不完全なデータで上書きされるのを防止）
   if(!driveReady)return;
-  const dk=getDateKey();
-  if(!dk)return;
-  if(!allData.entries[dk])allData.entries[dk]={};
-  const fd=collectFormData();
-  Object.assign(allData.entries[dk], fd);
-  allData.config={
-    ...(allData.config||{}),
-    projectName: document.getElementById('kyProjectName')?.textContent||'',
-    creator: document.getElementById('creator')?.value||''
-  };
-  scheduleDataFileSave();
+  try{
+    const dk=getDateKey();
+    if(!dk)return;
+    if(!allData.entries[dk])allData.entries[dk]={};
+    const fd=collectFormData();
+    Object.assign(allData.entries[dk], fd);
+    allData.config={
+      ...(allData.config||{}),
+      projectName: document.getElementById('kyProjectName')?.textContent||'',
+      creator: document.getElementById('creator')?.value||''
+    };
+    scheduleDataFileSave();
+  }catch(e){ console.error('autoSave error:',e); }
 }
 
 // ============ Page Initialization ============

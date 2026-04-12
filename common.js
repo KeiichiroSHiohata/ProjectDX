@@ -187,20 +187,26 @@ function getMonthKey(){
 }
 
 async function shiftDate(delta){
-  // 現画面のデータを保存
-  if(typeof autoSave==='function' && document.getElementById('workBlocks')) autoSave();
-  if(typeof autoSaveNippo==='function' && document.getElementById('nippoWorkBlocks')) autoSaveNippo();
+  // 現画面のデータを保存（エラーが出てもナビゲーションは止めない）
+  try{
+    if(typeof autoSave==='function' && document.getElementById('workBlocks')) autoSave();
+    if(typeof autoSaveNippo==='function' && document.getElementById('nippoWorkBlocks')) autoSaveNippo();
+  }catch(e){ console.error('shiftDate autoSave error:',e); }
   const inp=document.getElementById('workDate');
   if(!inp) return;
   const oldMonth=currentMonth;
   const d=inp.value?new Date(inp.value+'T00:00:00'):new Date();
   d.setDate(d.getDate()+delta);
   inp.value=localDateStr(d);
-  const newMonth=getMonthKey();
-  if(newMonth && oldMonth && newMonth!==oldMonth && currentFolderId){
-    await switchMonth(newMonth);
-  }
-  if(typeof onDateChange==='function') await onDateChange();
+  try{
+    const newMonth=getMonthKey();
+    if(newMonth && oldMonth && newMonth!==oldMonth && currentFolderId){
+      await switchMonth(newMonth);
+    }
+  }catch(e){ console.error('shiftDate switchMonth error:',e); }
+  try{
+    if(typeof onDateChange==='function') onDateChange();
+  }catch(e){ console.error('shiftDate onDateChange error:',e); }
 }
 
 // ============ データ保存・読込（フォルダ + 月次ファイル方式） ============
