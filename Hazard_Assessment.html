@@ -268,7 +268,7 @@ function addWorkBlock(){
     <div id="hazards-${wkId}"></div>
     <button class="btn btn-add-sm" onclick="addHazard(this)">＋ 危険要因</button>
   </div>`;
-  wb.innerHTML+=html;
+  wb.insertAdjacentHTML('beforeend', html);
   wkId++;
 }
 
@@ -292,58 +292,83 @@ function onWorkItemSelect(sel){
   if(!cat||!itemName){autoSave();return;}
   // Find item in masterData.workCategories
   const catObj=masterData.workCategories.find(c=>c.category===cat);
-  if(!catObj){autoSave();return;}
-  const itemObj=catObj.items.find(it=>(typeof it==='string'?it:it.name)===itemName);
-  if(!itemObj||typeof itemObj==='string'){autoSave();return;}
-  const hazards=itemObj.hazards||[];
-  if(hazards.length===0){autoSave();return;}
-  // Clear existing hazard rows and add from master
+  const itemObj=catObj?catObj.items.find(it=>(typeof it==='string'?it:it.name)===itemName):null;
+  const hazards=(itemObj&&typeof itemObj!=='string'&&itemObj.hazards)?itemObj.hazards:[];
+  // Clear existing hazard rows
   const wkId=block.getAttribute('data-wk-id');
   const hazDiv=block.querySelector(`#hazards-${wkId}`);
   if(hazDiv) hazDiv.innerHTML='';
-  hazards.forEach(h=>{
-    addHazard(block.querySelector('.btn-add-sm'));
-    const lastHaz=block.querySelector('.hazard-row:last-child');
-    if(lastHaz&&h.hazard){
-      lastHaz.querySelector('.haz-sel').value=h.hazard;
-      // Apply defaults from HAZARD_DEFAULTS or from master item
+  if(hazards.length>0){
+    // マスタに紐づけ済みの危険要因を自動テキスト表示
+    hazards.forEach(h=>{
       const def=HAZARD_DEFAULTS[h.hazard]||{};
-      lastHaz.querySelector('.haz-sev').value=h.severity||def.sev||'';
-      lastHaz.querySelector('.haz-freq').value=h.frequency||def.freq||'';
-      lastHaz.querySelector('.haz-meas').value=h.measure||def.measure||'';
-      calcS(lastHaz);
-    }
-  });
+      addHazardRow(hazDiv, {
+        hazard: h.hazard,
+        severity: h.severity||def.sev||'',
+        frequency: h.frequency||def.freq||'',
+        measure: h.measure||def.measure||''
+      });
+    });
+  }else{
+    // マスタに紐づけがない場合は手動追加用の空行
+    addHazardRow(hazDiv, null);
+  }
   autoSave();
+}
+
+function addHazardRow(hazDiv, hazData){
+  // hazData: {hazard, severity, frequency, measure} または null（手動追加用）
+  const hazId=Math.random().toString(36).substring(7);
+  if(!hazDiv)return;
+  if(hazData&&hazData.hazard){
+    // 自動入力モード：テキスト表示（ドロップダウンなし）
+    const sev=hazData.severity||'';
+    const freq=hazData.frequency||'';
+    const meas=hazData.measure||'';
+    const s=(parseInt(sev)||0)+(parseInt(freq)||0);
+    let rankText='-',rankClass='rank-D';
+    if(s>=20){rankClass='rank-D';rankText='D';}
+    else if(s>=15){rankClass='rank-C';rankText='C';}
+    else if(s>=10){rankClass='rank-B';rankText='B';}
+    else if(s>0){rankClass='rank-A';rankText='A';}
+    const html=`
+    <div class="hazard-row" data-haz-id="${hazId}">
+      <div class="form-row" style="align-items:center">
+        <div class="fg f2"><span class="haz-sel-text" style="font-size:13px;font-weight:600">${hazData.hazard}</span><input type="hidden" class="haz-sel" value="${hazData.hazard}"></div>
+        <div class="fg w70" style="text-align:center"><label>重大性</label><span class="haz-sev-text" style="font-size:13px;font-weight:600">${sev}</span><input type="hidden" class="haz-sev" value="${sev}"></div>
+        <div class="fg w70" style="text-align:center"><label>頻度</label><span class="haz-freq-text" style="font-size:13px;font-weight:600">${freq}</span><input type="hidden" class="haz-freq" value="${freq}"></div>
+        <div class="fg" style="flex:0 0 auto"><span class="score ${rankClass}" id="rank-${hazId}">${s>0?s+'('+rankText+')':'-'}</span></div>
+        <div class="fg" style="flex:1"><label>安全対策</label><span class="haz-meas-text" style="font-size:13px;font-weight:600">${meas}</span><input type="hidden" class="haz-meas" value="${meas}"></div>
+        <button class="btn btn-del" style="font-size:10px;padding:2px 6px;align-self:center" onclick="this.closest('.hazard-row').remove();autoSave()">削除</button>
+      </div>
+    </div>`;
+    hazDiv.insertAdjacentHTML('beforeend', html);
+  }else{
+    // 手動追加モード：ドロップダウン
+    const hazOpts=opts(M['危険要因']||[], '');
+    const sevOpts=opts(M['重大性']||[], '');
+    const freqOpts=opts(M['頻度']||[], '');
+    const measOpts=opts(M['安全対策']||[], '');
+    const html=`
+    <div class="hazard-row" data-haz-id="${hazId}">
+      <div class="form-row" style="align-items:flex-end">
+        <div class="fg f2"><label>危険要因</label><select class="haz-sel" onchange="onHazardChange(this)">${hazOpts}</select></div>
+        <div class="fg w70"><label>重大性</label><select class="haz-sev" onchange="calcS(this.closest('.hazard-row'))">${sevOpts}</select></div>
+        <div class="fg w70"><label>頻度</label><select class="haz-freq" onchange="calcS(this.closest('.hazard-row'))">${freqOpts}</select></div>
+        <div class="fg" style="flex:0 0 auto"><span class="score rank-D" id="rank-${hazId}">-</span></div>
+        <div class="fg" style="flex:1"><label>安全対策</label><select class="haz-meas">${measOpts}</select></div>
+        <button class="btn btn-del" style="font-size:10px;padding:2px 6px;align-self:center" onclick="this.closest('.hazard-row').remove();autoSave()">削除</button>
+      </div>
+    </div>`;
+    hazDiv.insertAdjacentHTML('beforeend', html);
+  }
 }
 
 function addHazard(btn){
   const block=btn.closest('.work-block');
   const wkId=block.getAttribute('data-wk-id');
-  const hazId=Math.random().toString(36).substring(7);
   const hazDiv=block.querySelector(`#hazards-${wkId}`);
-  if(!hazDiv)return;
-  const hazOpts=opts(M['危険要因']||[], '');
-  const sevOpts=opts(M['重大性']||[], '');
-  const freqOpts=opts(M['頻度']||[], '');
-  const measOpts=opts(M['安全対策']||[], '');
-  const html=`
-  <div class="hazard-row" data-haz-id="${hazId}">
-    <div class="hazard-header">
-      <div class="hazard-label">危険要因</div>
-      <button class="btn btn-del" style="font-size:10px;padding:2px 6px" onclick="this.parentElement.parentElement.remove();autoSave()">削除</button>
-    </div>
-    <div class="form-row">
-      <div class="fg f2"><select class="haz-sel" onchange="onHazardChange(this)">${hazOpts}</select></div>
-      <div class="fg w70"><label>重大性</label><select class="haz-sev">${sevOpts}</select></div>
-      <div class="fg w70"><label>頻度</label><select class="haz-freq">${freqOpts}</select></div>
-      <div class="fg" style="flex:1"><label>安全対策</label><select class="haz-meas">${measOpts}</select></div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
-      <span class="score rank-A" id="rank-${hazId}">リスク: -</span>
-    </div>
-  </div>`;
-  hazDiv.innerHTML+=html;
+  addHazardRow(hazDiv, null);
   autoSave();
 }
 
@@ -362,19 +387,20 @@ function onHazardChange(sel){
   autoSave();
 }
 
-function calcS(el){
-  const row=el.closest('.hazard-row');
+function calcS(rowOrEl){
+  const row=rowOrEl.closest?rowOrEl.closest('.hazard-row'):rowOrEl;
   if(!row)return;
   const sev=parseInt(row.querySelector('.haz-sev').value)||0;
   const freq=parseInt(row.querySelector('.haz-freq').value)||0;
   const s=sev+freq;
   const rankEl=row.querySelector('[id^="rank-"]');
   if(!rankEl)return;
-  let rankClass='rank-A',rankText='A';
+  let rankClass='rank-D',rankText='D';
   if(s>=20){rankClass='rank-D';rankText='D';}
   else if(s>=15){rankClass='rank-C';rankText='C';}
   else if(s>=10){rankClass='rank-B';rankText='B';}
-  rankEl.textContent=`評価: ${rankText} (${s})`;
+  else if(s>0){rankClass='rank-A';rankText='A';}
+  rankEl.textContent=s>0?`${s}(${rankText})`:'-';
   rankEl.className='score '+rankClass;
 }
 
@@ -970,16 +996,16 @@ function restoreFormData(data){
         onCategorySelect(lastBlock.querySelector('.wk-cat'));
         lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
         if(block.hazards){
+          const wkId=lastBlock.getAttribute('data-wk-id');
+          const hazDiv=lastBlock.querySelector(`#hazards-${wkId}`);
+          if(hazDiv) hazDiv.innerHTML='';
           block.hazards.forEach(haz=>{
-            addHazard(lastBlock.querySelector('.btn-add-sm'));
-            const lastHaz=lastBlock.querySelector('.hazard-row:last-child');
-            if(lastHaz){
-              lastHaz.querySelector('.haz-sel').value=haz.hazard;
-              lastHaz.querySelector('.haz-sev').value=haz.severity;
-              lastHaz.querySelector('.haz-freq').value=haz.frequency;
-              lastHaz.querySelector('.haz-meas').value=haz.measure;
-              calcS(lastHaz);
-            }
+            addHazardRow(hazDiv, {
+              hazard: haz.hazard||'',
+              severity: haz.severity||'',
+              frequency: haz.frequency||'',
+              measure: haz.measure||''
+            });
           });
         }
       }

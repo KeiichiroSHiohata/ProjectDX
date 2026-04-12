@@ -32,8 +32,8 @@ const M={
   "単位":["式","m","m2","m3","基","個","箇所","枚","組","t","kg","km","g"],
   "重大性":["1","5","10","20"],
   "頻度":["1","5","10","20"],
-  "危険要因":["路肩の崩壊","法面からの転落","足場からの転落","熱中症","歩行者と重機の接触","一般車両と重機の接触","重機に挟まれる","重機と作業者の接触","吊荷の落下","足場の倒壊","積荷の落下","一般車両との接触事故","機械に挟まれる","草刈り機での事故","河川内に転落","法面からの落石","クレーンの転倒","掘削中の法面崩壊","法面からの重機の転落","つまづき・転倒","交通事故","停止工事車両の暴走","上方からの工具の落下","高所作業者からの転落","吊荷との接触"],
-  "安全対策":["合図者配置","整理整頓","安全帯着用","輪止の使用","水分補給・休息","合図確認","上下作業禁止","吊荷の下に立ち入らない","吊具の状態の確認","足元の確認","一般車両優先で作業する","荷締めを確実に行う","作業手順の確認","浮石の撤去","周囲の確認","アウトリガー養生","路肩の明示","作業半径内立入禁止","過積載禁止","工事車両徐行運転","急発進・急ブレーキ禁止","地山の点検","地盤・支点の確認","落下防止コードの使用","ガイドロープの使用","重機の足場の確認"],
+  "危険要因":["路肩の崩壊","法面からの転落","足場からの転落","熱中症","歩行者と重機の接触","一般車両と重機の接触","重機に挟まれる","重機と作業者の接触","吊荷の落下","足場の倒壊","土砂等の積荷の落下","一般車両との接触事故","機械に挟まれる","草刈機の歯が他の作業員にあたる","法面からの落石","クレーンの転倒","掘削中の法面崩壊","法面からの重機の転落","つまづき・転倒","交通事故","停止工事車両の暴走","上方からの工具の落下","高所作業者からの転落","吊荷との接触","草刈機の歯により石等が飛散する","単管等の積荷の落下","チェーンソとの接触","倒木・跳ね返りによる被災","第三者の被災","仮設物の転倒","高所からの墜落","上方からの資材の落下","漏電・火災","架空線への接触","地下埋設物の損傷","開口部への転落","粉じん吸入","積荷の荷崩れ","手指の挟まれ","鉄筋端部による刺傷","腰痛","工具の落下","重機接触","火傷","飛来物による被災","騒音による被災","溶剤吸入"],
+  "安全対策":["合図者配置","整理整頓","安全帯着用","輪止の使用","水分補給・休息","合図確認","上下作業禁止","吊荷の下に立ち入らない","吊具の状態の確認","足元の確認","一般車両優先で作業する","荷締めを確実に行う","作業手順の確認","浮石の撤去","周囲の確認","地盤の確認","路肩の明示","作業半径内立入禁止","過積載禁止","工事車両徐行運転","急発進・急ブレーキ禁止","地山の点検","地盤・支点の確認","落下防止コードの使用","ガイドロープの使用","重機の足場の確認","保護具の着用","退避路の確保","立入禁止措置","飛散防止措置","誘導員配置・保安施設設置","専用吊金具の使用","足場の適正使用","ケーブル養生","落下防止措置","掘削勾配確保・土留め設置","架空線離隔の確保","埋設物の事前確認","開口部養生","散水・防じんマスク着用","玉掛けの適正実施","治具の使用","作業区画の分離","適正車両の選定","定格荷重の確認","挟まれ防止措置","型枠支保工の点検","鉄筋端部の養生","補助具の使用","作業姿勢の管理","高所作業車の適正使用","足場の点検","換気・防毒マスク着用"],
   "作業者":["坂本","水野　博之","福島　利紀","福島　吏","塗木　一鑑","濱砂　幸治","日高　英司","西山　義光","横山　真実","塩畑　圭一郎","塩畑　紘文","交通誘導員B","交通誘導員A"]
 };
 
@@ -49,13 +49,12 @@ let HAZARD_DEFAULTS = {
   "重機と作業者の接触":   {sev:"20", freq:"5", measure:"作業半径内立入禁止"},
   "吊荷の落下":           {sev:"20", freq:"1", measure:"吊具の状態の確認"},
   "足場の倒壊":           {sev:"20", freq:"1", measure:"地盤・支点の確認"},
-  "積荷の落下":           {sev:"10", freq:"5", measure:"荷締めを確実に行う"},
+  "土砂等の積荷の落下":   {sev:"10", freq:"5", measure:"過積載禁止"},
   "一般車両との接触事故": {sev:"20", freq:"1", measure:"一般車両優先で作業する"},
   "機械に挟まれる":       {sev:"20", freq:"1", measure:"合図確認"},
-  "草刈り機での事故":     {sev:"10", freq:"5", measure:"周囲の確認"},
-  "河川内に転落":         {sev:"20", freq:"5", measure:"路肩の明示"},
+  "草刈機の歯が他の作業員にあたる": {sev:"20", freq:"5", measure:"周囲の確認"},
   "法面からの落石":       {sev:"20", freq:"5", measure:"浮石の撤去"},
-  "クレーンの転倒":       {sev:"20", freq:"1", measure:"アウトリガー養生"},
+  "クレーンの転倒":       {sev:"20", freq:"1", measure:"地盤の確認"},
   "掘削中の法面崩壊":     {sev:"20", freq:"5", measure:"地山の点検"},
   "法面からの重機の転落": {sev:"20", freq:"5", measure:"重機の足場の確認"},
   "つまづき・転倒":       {sev:"10", freq:"5", measure:"足元の確認"},
@@ -63,7 +62,30 @@ let HAZARD_DEFAULTS = {
   "停止工事車両の暴走":   {sev:"20", freq:"1", measure:"輪止の使用"},
   "上方からの工具の落下": {sev:"10", freq:"5", measure:"落下防止コードの使用"},
   "高所作業者からの転落": {sev:"20", freq:"5", measure:"安全帯着用"},
-  "吊荷との接触":         {sev:"10", freq:"5", measure:"ガイドロープの使用"}
+  "吊荷との接触":         {sev:"10", freq:"5", measure:"ガイドロープの使用"},
+  "草刈機の歯により石等が飛散する": {sev:"5", freq:"20", measure:"保護具の着用"},
+  "単管等の積荷の落下":   {sev:"20", freq:"10", measure:"荷締めを確実に行う"},
+  "チェーンソとの接触":   {sev:"20", freq:"10", measure:"保護具の着用"},
+  "倒木・跳ね返りによる被災": {sev:"20", freq:"5", measure:"退避路の確保"},
+  "第三者の被災":         {sev:"10", freq:"1", measure:"立入禁止措置"},
+  "仮設物の転倒":         {sev:"20", freq:"1", measure:"専用吊金具の使用"},
+  "高所からの墜落":       {sev:"20", freq:"5", measure:"足場の適正使用"},
+  "上方からの資材の落下": {sev:"20", freq:"5", measure:"立入禁止措置"},
+  "漏電・火災":           {sev:"20", freq:"1", measure:"ケーブル養生"},
+  "架空線への接触":       {sev:"20", freq:"5", measure:"架空線離隔の確保"},
+  "地下埋設物の損傷":     {sev:"10", freq:"5", measure:"埋設物の事前確認"},
+  "開口部への転落":       {sev:"20", freq:"5", measure:"開口部養生"},
+  "粉じん吸入":           {sev:"10", freq:"10", measure:"散水・防じんマスク着用"},
+  "積荷の荷崩れ":         {sev:"10", freq:"5", measure:"荷締めを確実に行う"},
+  "手指の挟まれ":         {sev:"20", freq:"5", measure:"治具の使用"},
+  "鉄筋端部による刺傷":   {sev:"20", freq:"5", measure:"鉄筋端部の養生"},
+  "腰痛":                 {sev:"5", freq:"10", measure:"補助具の使用"},
+  "工具の落下":           {sev:"20", freq:"5", measure:"上下作業禁止"},
+  "重機接触":             {sev:"20", freq:"5", measure:"合図者配置"},
+  "火傷":                 {sev:"10", freq:"5", measure:"保護具の着用"},
+  "飛来物による被災":     {sev:"10", freq:"5", measure:"保護具の着用"},
+  "騒音による被災":       {sev:"10", freq:"10", measure:"保護具の着用"},
+  "溶剤吸入":             {sev:"10", freq:"10", measure:"換気・防毒マスク着用"}
 };
 
 // ============ 安全目標の自動生成 ============
@@ -83,7 +105,7 @@ let GOAL_MAP={
   "作業手順の確認":"手順確認よし！",
   "浮石の撤去":"浮石確認よし！",
   "周囲の確認":"周囲確認よし！",
-  "アウトリガー養生":"アウトリガーよし！",
+  "地盤の確認":"地盤よし！",
   "路肩の明示":"路肩確認よし！",
   "作業半径内立入禁止":"立入禁止確認よし！",
   "過積載禁止":"積載確認よし！",
@@ -93,7 +115,34 @@ let GOAL_MAP={
   "地盤・支点の確認":"地盤・支点よし！",
   "落下防止コードの使用":"落下防止コードよし！",
   "ガイドロープの使用":"ガイドロープよし！",
-  "重機の足場の確認":"足場確認よし！"
+  "重機の足場の確認":"足場確認よし！",
+  "保護具の着用":"保護具よし！",
+  "退避路の確保":"退避路よし！",
+  "立入禁止措置":"立入禁止よし！",
+  "飛散防止措置":"飛散防止よし！",
+  "誘導員配置・保安施設設置":"誘導員配置・保安施設設置よし！",
+  "専用吊金具の使用":"専用吊金具よし！",
+  "足場の適正使用":"足場適正使用よし！",
+  "ケーブル養生":"ケーブル養生よし！",
+  "落下防止措置":"落下防止措置よし！",
+  "掘削勾配確保・土留め設置":"掘削勾配確保・土留め設置よし！",
+  "架空線離隔の確保":"架空線離隔確保よし！",
+  "埋設物の事前確認":"埋設物事前確認よし！",
+  "開口部養生":"開口部養生よし！",
+  "散水・防じんマスク着用":"散水・防じんマスクよし！",
+  "玉掛けの適正実施":"玉掛け適正実施よし！",
+  "治具の使用":"治具よし！",
+  "作業区画の分離":"作業区画分離よし！",
+  "適正車両の選定":"適正車両選定よし！",
+  "定格荷重の確認":"定格荷重確認よし！",
+  "挟まれ防止措置":"挟まれ防止措置よし！",
+  "型枠支保工の点検":"型枠支保工確認よし！",
+  "鉄筋端部の養生":"鉄筋端部の養生よし！",
+  "補助具の使用":"補助具よし！",
+  "作業姿勢の管理":"作業姿勢管理よし！",
+  "高所作業車の適正使用":"高所作業車適正使用よし！",
+  "足場の点検":"足場確認よし！",
+  "換気・防毒マスク着用":"換気・防毒マスクよし！"
 };
 
 // 初期値のディープコピー保持（「初期値に戻す」用）
@@ -172,7 +221,8 @@ let tokenClient=null;
 // ============ Master / Project 状態 ============
 const MASTER_FILE_NAME='KY_master.json';
 let masterFileId=null;
-let masterData={workers:[],workCategories:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{},units:['式','m','m2','m3','基','個','箇所','枚','組','t','kg','km','g'],materials:[],materialSpecs:[]};
+const DEFAULT_WORK_CATEGORIES=[{"category":"準備工","items":[{"name":"仮設物撤去","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"地盤の確認"},{"hazard":"吊荷との接触","severity":"10","frequency":"5","measure":"ガイドロープの使用"}]},{"name":"仮設物設置","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"地盤の確認"},{"hazard":"吊荷との接触","severity":"10","frequency":"5","measure":"ガイドロープの使用"}]},{"name":"測量作業","hazards":[{"hazard":"つまづき・転倒","severity":"5","frequency":"20","measure":"整理整頓"}]},{"name":"現地踏査・事前調査・測量","hazards":[{"hazard":"つまづき・転倒","severity":"5","frequency":"10","measure":"足元の確認"},{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"路肩の明示"},{"hazard":"熱中症","severity":"10","frequency":"10","measure":"水分補給・休息"}]},{"name":"除草作業","hazards":[{"hazard":"草刈機の歯が他の作業員にあたる","severity":"20","frequency":"10","measure":"周囲の確認"},{"hazard":"草刈機の歯により石等が飛散する","severity":"10","frequency":"10","measure":"保護具の着用"},{"hazard":"草刈機の歯により石等が飛散する","severity":"10","frequency":"10","measure":"飛散防止措置"}]}]},{"category":"仮設工","items":[{"name":"仮設防護柵設置・撤去","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"立入禁止措置"},{"hazard":"仮設物の転倒","severity":"20","frequency":"1","measure":"専用吊金具の使用"},{"hazard":"漏電・火災","severity":"20","frequency":"1","measure":"ケーブル養生"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"足場の適正使用"}]},{"name":"足場設置・撤去","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"落下防止措置"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"土工","items":[{"name":"切土","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"地山の点検"}]},{"name":"埋戻し","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"}]},{"name":"掘削","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"},{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"架空線への接触","severity":"20","frequency":"5","measure":"架空線離隔の確保"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"掘削・切土・運搬","hazards":[{"hazard":"粉じん吸入","severity":"10","frequency":"10","measure":"散水・防じんマスク着用"}]},{"name":"盛土","hazards":[{"hazard":"法面からの重機の転落","severity":"20","frequency":"5","measure":"地盤の確認"}]},{"name":"積込・運搬","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"合図者配置"}]}]},{"category":"排水構造物工","items":[{"name":"各種側溝の搬入","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"積荷の荷崩れ","severity":"10","frequency":"5","measure":"荷締めを確実に行う"}]},{"name":"各種側溝設置","hazards":[{"hazard":"吊荷との接触","severity":"20","frequency":"5","measure":"合図確認"},{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"吊具の状態の確認"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"}]},{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"},{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"架空線への接触","severity":"20","frequency":"5","measure":"架空線離隔の確保"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]}]},{"category":"擁壁工","items":[{"name":"プレキャスト擁壁の搬入","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"積荷の荷崩れ","severity":"10","frequency":"5","measure":"適正車両の選定"}]},{"name":"プレキャスト擁壁設置","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"定格荷重の確認"},{"hazard":"吊荷との接触","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"玉掛けの適正実施"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"挟まれ防止措置"}]},{"name":"型枠組立・撤去","hazards":[{"hazard":"足場からの転落","severity":"20","frequency":"5","measure":"安全帯着用"},{"hazard":"足場の倒壊","severity":"20","frequency":"1","measure":"型枠支保工の点検"}]},{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"鉄器加工組立","hazards":[{"hazard":"鉄筋端部による刺傷","severity":"20","frequency":"5","measure":"鉄筋端部の養生"}]}]},{"category":"縁石工","items":[{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"路肩の崩壊","severity":"20","frequency":"1","measure":"路肩の明示"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"縁石の搬入","hazards":[{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"},{"hazard":"腰痛","severity":"5","frequency":"10","measure":"補助具の使用"}]},{"name":"縁石設置","hazards":[{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"吊具の状態の確認"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"},{"hazard":"第三者の被災","severity":"10","frequency":"5","measure":"立入禁止措置"},{"hazard":"腰痛","severity":"5","frequency":"10","measure":"作業姿勢の管理"}]}]},{"category":"法面工","items":[{"name":"モルタル吹付","hazards":[{"hazard":"工具の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"ラス張","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"植生基材吹付","hazards":[{"hazard":"工具の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"法枠組立","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"法面整形","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"地山の点検"},{"hazard":"法面からの落石","severity":"10","frequency":"5","measure":"浮石の撤去"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"舗装工","items":[{"name":"アスファルト舗設","hazards":[{"hazard":"火傷","severity":"10","frequency":"5","measure":"保護具の着用"},{"hazard":"熱中症","severity":"10","frequency":"10","measure":"水分補給・休息"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"}]},{"name":"合材受入","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"合図者配置"}]},{"name":"路床・路盤","hazards":[{"hazard":"粉じん吸入","severity":"10","frequency":"10","measure":"散水・防じんマスク着用"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"重機接触","severity":"20","frequency":"5","measure":"合図者配置"}]}]},{"category":"安全施設工","items":[{"name":"ガードレール設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"区画線設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"}]},{"name":"撤去・復旧","hazards":[{"hazard":"仮設物の転倒","severity":"20","frequency":"1","measure":"作業手順の確認"}]},{"name":"案内標識設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"高所作業車の適正使用"}]},{"name":"転落防止柵設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"橋梁補修工","items":[{"name":"ひび割れ補修","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"吊足場設置・撤去","hazards":[{"hazard":"上方からの工具の落下","severity":"20","frequency":"5","measure":"落下防止措置"},{"hazard":"足場の倒壊","severity":"20","frequency":"1","measure":"足場の点検"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"支承補修","hazards":[{"hazard":"機械に挟まれる","severity":"20","frequency":"5","measure":"作業手順の確認"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"断面修復","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"},{"hazard":"飛来物による被災","severity":"10","frequency":"5","measure":"保護具の着用"},{"hazard":"騒音による被災","severity":"10","frequency":"10","measure":"保護具の着用"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"現場塗装","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"}]}]}];
+let masterData={workers:[],workCategories:JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES)),hazards:[],measures:[],hazardDefaults:{},goalMap:{},units:['式','m','m2','m3','基','個','箇所','枚','組','t','kg','km','g'],materials:[],materialSpecs:[]};
 let projectList=[];
 let currentProjectFileId=null;
 let currentFolderId=null;
@@ -405,6 +455,33 @@ async function loadMasterData(){
     if(masterData.workItems&&masterData.workItems.length>0&&(!masterData.workCategories||masterData.workCategories.length===0)){
       masterData.workCategories=[{category:'その他',items:masterData.workItems}];
       delete masterData.workItems;
+    }
+    // workCategoriesが空またはhazardsが未設定の場合、DEFAULT_WORK_CATEGORIESで補完
+    if(!masterData.workCategories||masterData.workCategories.length===0){
+      masterData.workCategories=JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES));
+    }else{
+      // 既存カテゴリの各作業項目にhazardsが空なら、デフォルトからマージ
+      const defMap={};
+      DEFAULT_WORK_CATEGORIES.forEach(dc=>{
+        dc.items.forEach(di=>{ defMap[dc.category+'///'+di.name]=di.hazards; });
+      });
+      masterData.workCategories.forEach(cat=>{
+        if(!cat.items)cat.items=[];
+        cat.items.forEach(item=>{
+          if(typeof item==='string')return;
+          if(!item.hazards||item.hazards.length===0){
+            const key=cat.category+'///'+item.name;
+            if(defMap[key])item.hazards=JSON.parse(JSON.stringify(defMap[key]));
+          }
+        });
+      });
+      // デフォルトにあってDriveデータにないカテゴリを追加
+      const existCats=new Set(masterData.workCategories.map(c=>c.category));
+      DEFAULT_WORK_CATEGORIES.forEach(dc=>{
+        if(!existCats.has(dc.category)){
+          masterData.workCategories.push(JSON.parse(JSON.stringify(dc)));
+        }
+      });
     }
   }catch(e){
     showConfigStatus('❌ マスタデータ解析エラー: '+e.message);
@@ -1490,7 +1567,24 @@ async function initCommon(){
       if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
       if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
       if(!masterData.workers)masterData.workers=[];
-      if(!masterData.workCategories)masterData.workCategories=[];
+      if(!masterData.workCategories||masterData.workCategories.length===0){
+        masterData.workCategories=JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES));
+      }else{
+        // hazardsが空の作業項目にデフォルトを補完
+        const defMap={};
+        DEFAULT_WORK_CATEGORIES.forEach(dc=>{ dc.items.forEach(di=>{ defMap[dc.category+'///'+di.name]=di.hazards; }); });
+        masterData.workCategories.forEach(cat=>{
+          if(!cat.items)cat.items=[];
+          cat.items.forEach(item=>{
+            if(typeof item!=='string'&&(!item.hazards||item.hazards.length===0)){
+              const key=cat.category+'///'+item.name;
+              if(defMap[key])item.hazards=JSON.parse(JSON.stringify(defMap[key]));
+            }
+          });
+        });
+        const existCats=new Set(masterData.workCategories.map(c=>c.category));
+        DEFAULT_WORK_CATEGORIES.forEach(dc=>{ if(!existCats.has(dc.category)) masterData.workCategories.push(JSON.parse(JSON.stringify(dc))); });
+      }
     }}catch(e){}
     dbg(`initCommon: session restored - folderId=${currentFolderId}, month=${currentMonth}, entries=${Object.keys(allData.entries).length}, entryKeys=[${Object.keys(allData.entries).join(',')}]`);
   }
