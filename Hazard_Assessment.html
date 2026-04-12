@@ -701,41 +701,61 @@ async function exportExcel(){
       }
     }
 
-    // === styles.xml: BS3〜CJ3セルの下詰め対応 ===
+    // === styles.xml: BS3〜CJ3セルの下詰め・中央寄せ対応 ===
+    // 既存の共有スタイルを壊さないよう、新しいxfを追加して対象セルだけに適用する
     const styPath='xl/styles.xml';
     let styXml=await zip.file(styPath).async('string');
-    const row3El=getRow(3);
-    const row3Cells=row3El.getElementsByTagNameNS(ns,'c');
-    const usedStyles=new Set();
-    for(let ci=0;ci<row3Cells.length;ci++){
-      const ref=row3Cells[ci].getAttribute('r');
-      const colStr=ref.replace(/[0-9]/g,'');
-      let colIdx=0;for(let j=0;j<colStr.length;j++)colIdx=colIdx*26+(colStr.charCodeAt(j)-64);
-      if(colIdx>=71&&colIdx<=88){
-        const s=row3Cells[ci].getAttribute('s');
-        if(s)usedStyles.add(parseInt(s));
-      }
-    }
     const styParser=new DOMParser();
     const styDoc=styParser.parseFromString(styXml,'application/xml');
     const styNs=styDoc.documentElement.namespaceURI;
     const cellXfs=styDoc.getElementsByTagNameNS(styNs,'cellXfs')[0];
+    // 元スタイルID → 新スタイルID のマッピングを作成
+    const styleCloneMap={};
     if(cellXfs){
       const xfs=cellXfs.getElementsByTagNameNS(styNs,'xf');
-      usedStyles.forEach(idx=>{
-        if(idx<xfs.length){
-          const xf=xfs[idx];
-          let align=xf.getElementsByTagNameNS(styNs,'alignment')[0];
-          if(!align){
-            align=styDoc.createElementNS(styNs,'alignment');
-            xf.appendChild(align);
-            xf.setAttribute('applyAlignment','1');
-          }
-          align.setAttribute('vertical','bottom');
-          if(!align.getAttribute('horizontal')||align.getAttribute('horizontal')==='general'){
-            align.setAttribute('horizontal','center');
+      const origCount=xfs.length;
+      // row3 の BS(71)〜CJ(88) セルのスタイルIDを収集
+      const row3El=getRow(3);
+      const row3Cells=row3El.getElementsByTagNameNS(ns,'c');
+      const targetCells=[];
+      for(let ci=0;ci<row3Cells.length;ci++){
+        const ref=row3Cells[ci].getAttribute('r');
+        const colStr=ref.replace(/[0-9]/g,'');
+        let colIdx=0;for(let j=0;j<colStr.length;j++)colIdx=colIdx*26+(colStr.charCodeAt(j)-64);
+        if(colIdx>=71&&colIdx<=88){
+          const s=row3Cells[ci].getAttribute('s');
+          if(s) targetCells.push({cell:row3Cells[ci],origStyle:parseInt(s)});
+        }
+      }
+      // 元スタイルごとにクローンを1つ作成
+      let nextIdx=origCount;
+      targetCells.forEach(tc=>{
+        if(styleCloneMap[tc.origStyle]===undefined){
+          const origXf=xfs[tc.origStyle];
+          if(origXf){
+            const newXf=origXf.cloneNode(true);
+            let align=newXf.getElementsByTagNameNS(styNs,'alignment')[0];
+            if(!align){
+              align=styDoc.createElementNS(styNs,'alignment');
+              newXf.appendChild(align);
+              newXf.setAttribute('applyAlignment','1');
+            }
+            align.setAttribute('vertical','bottom');
+            if(!align.getAttribute('horizontal')||align.getAttribute('horizontal')==='general'){
+              align.setAttribute('horizontal','center');
+            }
+            cellXfs.appendChild(newXf);
+            styleCloneMap[tc.origStyle]=nextIdx;
+            nextIdx++;
           }
         }
+      });
+      // cellXfsのcount属性を更新
+      cellXfs.setAttribute('count',String(nextIdx));
+      // 対象セルのスタイルIDを新しいものに差し替え
+      targetCells.forEach(tc=>{
+        const newId=styleCloneMap[tc.origStyle];
+        if(newId!==undefined) tc.cell.setAttribute('s',String(newId));
       });
     }
     const stySer=new XMLSerializer();
