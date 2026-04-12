@@ -995,6 +995,7 @@ function clearForm(){
 
 function restoreFormData(data){
   if(!data)return;
+  _restoring=true; // autoSave抑制開始
   resetFormFields();
   if(data.workDate) document.getElementById('workDate').value=data.workDate;
   if(data.creator) document.getElementById('creator').value=data.creator;
@@ -1047,6 +1048,7 @@ function restoreFormData(data){
     sigData={...data.signatures};
     renderSigs();
   }
+  _restoring=false; // autoSave抑制解除
 }
 
 function onDateChange(){
@@ -1074,13 +1076,18 @@ async function copyPrevDay(){
 async function doCopyPrevDay(prevKey){
   const prevData=allData.entries[prevKey];
   const curKey=getDateKey();
-  allData.entries[curKey]={...prevData};
-  restoreFormData(prevData);
+  // 署名欄はコピーしない（署名は日ごとに行うため）
+  const copyData={...prevData};
+  delete copyData.signatures;
+  allData.entries[curKey]={...copyData};
+  restoreFormData(copyData);
   autoSave();
 }
 
 // ============ Auto-save ============
+let _restoring=false; // restoreFormData中はautoSaveを抑制
 function autoSave(){
+  if(_restoring)return; // 復元中は保存しない（不完全なデータで上書きされるのを防止）
   if(!driveReady)return;
   const dk=getDateKey();
   if(!dk)return;
