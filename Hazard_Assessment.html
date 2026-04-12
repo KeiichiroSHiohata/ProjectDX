@@ -470,6 +470,10 @@ function openModal(id){
   currentSigId=id;
   const d=sigData[id];
   document.getElementById('sigModalTitle').textContent=`署名 - 署名者${id+1}`;
+  // モーダル表示前にキャンバスをクリア（前回の署名が一瞬見える問題を防止）
+  const canvas=document.getElementById('sigCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   const modal=document.getElementById('sigModal');
   modal.classList.add('active');
   setTimeout(initModalCanvas,100);
@@ -967,8 +971,8 @@ function collectFormData(){
     data.inspection[cb.getAttribute('data-i')+'-'+cb.getAttribute('data-k')]=cb.checked;
   });
 
-  // Collect signatures
-  data.signatures=sigData;
+  // Collect signatures（深いコピーで保存。参照共有による日付間データ混在を防止）
+  data.signatures=JSON.parse(JSON.stringify(sigData));
 
   return data;
 }

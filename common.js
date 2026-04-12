@@ -710,27 +710,9 @@ async function deleteCurrentProject(){
   showConfigStatus('🗑 工事「'+name+'」を削除しました');
 }
 
-// 自動保存
-function autoSave(){
-  if(!driveReady)return;
-  const key=getDateKey();
-  if(!key)return;
-  try{
-    const data=typeof collectFormData==='function'?collectFormData():{};
-    // 既存の日報データを保持
-    const existingNippo=(allData.entries[key]&&allData.entries[key].nippo)||null;
-    const pnEl=document.getElementById('projectName');
-    const creatorEl=document.getElementById('creator');
-    allData.config={
-      ...(allData.config||{}),
-      projectName:pnEl?pnEl.textContent:'',
-      creator:creatorEl?creatorEl.value:''
-    };
-    allData.entries[key]=data;
-    if(existingNippo) allData.entries[key].nippo=existingNippo;
-    scheduleDataFileSave();
-  }catch(e){}
-}
+// 自動保存（各ページで再定義される場合はそちらが優先される）
+// ※ このファイルはdeferで読み込まれるため、インラインscriptより後に実行される
+// ※ 各ページ固有のautoSaveが必要な場合はDOMContentLoaded内で再定義すること
 
 function scheduleDataFileSave(){
   if(!isDriveConnected())return;
