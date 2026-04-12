@@ -512,10 +512,9 @@ function autoSaveNippo(){
   if(!dk) return;
   if(!allData.entries[dk]) allData.entries[dk]={};
   allData.entries[dk].nippo=collectNippoData();
-  const pnText=document.getElementById('nippoProjectName')?.textContent||'';
   allData.config={
     ...(allData.config||{}),
-    projectName:pnText||allData.config?.projectName||'',
+    projectName:document.getElementById('nippoProjectName').textContent,
     creator:document.getElementById('creator').value
   };
   scheduleDataFileSave();
@@ -837,16 +836,9 @@ function onDateChange(){
 
 function onPageReady(){
   dbg('DR.onPageReady() start');
-  // Update compact bar with project info（複数ソースからフォールバック取得）
+  // Update compact bar with project info
   const pn=document.getElementById('nippoProjectName');
-  let projName=allData.config?.projectName||'';
-  if(!projName){
-    try{const c=sessionStorage.getItem('allDataConfig');if(c){const cfg=JSON.parse(c);projName=cfg.projectName||'';}}catch(e){}
-  }
-  if(!projName&&currentFolderId){
-    try{const p=(projectList||[]).find(p=>p.id===currentFolderId);if(p)projName=p.name||'';}catch(e){}
-  }
-  if(pn&&projName){pn.textContent=projName;allData.config=allData.config||{};allData.config.projectName=projName;}
+  if(pn && allData.config?.projectName) pn.textContent=allData.config.projectName;
 
   // Set date to today if empty
   const wd=document.getElementById('workDate');

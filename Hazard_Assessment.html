@@ -1049,6 +1049,7 @@ async function doCopyPrevDay(prevKey){
 // ============ Auto-save ============
 function autoSave(){
   if(!driveReady)return;
+<<<<<<< HEAD
   const dk=getDateKey();
   if(!dk)return;
   if(!allData.entries[dk])allData.entries[dk]={};
@@ -1060,6 +1061,21 @@ function autoSave(){
     creator: document.getElementById('creator')?.value||''
   };
   scheduleDataFileSave();
+=======
+  try{
+    const dk=getDateKey();
+    if(!dk)return;
+    if(!allData.entries[dk])allData.entries[dk]={};
+    const fd=collectFormData();
+    Object.assign(allData.entries[dk], fd);
+    allData.config={
+      ...(allData.config||{}),
+      projectName: document.getElementById('kyProjectName')?.textContent||'',
+      creator: document.getElementById('creator')?.value||''
+    };
+    scheduleDataFileSave();
+  }catch(e){ console.error('autoSave error:',e); }
+>>>>>>> parent of 5da4b9d (テスト)
 }
 
 // ============ Page Initialization ============
