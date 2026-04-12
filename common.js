@@ -32,9 +32,9 @@ const M={
   "単位":["式","m","m2","m3","基","個","箇所","枚","組","t","kg","km","g"],
   "重大性":["1","5","10","20"],
   "頻度":["1","5","10","20"],
-  "危険要因":["路肩の崩壊","法面からの転落","足場からの転落","熱中症","歩行者と重機の接触","一般車両と重機の接触","重機に挟まれる","重機と作業者の接触","吊荷の落下","足場の倒壊","土砂等の積荷の落下","一般車両との接触事故","機械に挟まれる","草刈機の歯が他の作業員にあたる","法面からの落石","クレーンの転倒","掘削中の法面崩壊","法面からの重機の転落","つまづき・転倒","交通事故","停止工事車両の暴走","上方からの工具の落下","高所作業者からの転落","吊荷との接触","草刈機の歯により石等が飛散する","単管等の積荷の落下","チェーンソとの接触","倒木・跳ね返りによる被災","第三者の被災","仮設物の転倒","高所からの墜落","上方からの資材の落下","漏電・火災","架空線への接触","地下埋設物の損傷","開口部への転落","粉じん吸入","積荷の荷崩れ","手指の挟まれ","鉄筋端部による刺傷","腰痛","工具の落下","重機接触","火傷","飛来物による被災","騒音による被災","溶剤吸入"],
-  "安全対策":["合図者配置","整理整頓","安全帯着用","輪止の使用","水分補給・休息","合図確認","上下作業禁止","吊荷の下に立ち入らない","吊具の状態の確認","足元の確認","一般車両優先で作業する","荷締めを確実に行う","作業手順の確認","浮石の撤去","周囲の確認","地盤の確認","路肩の明示","作業半径内立入禁止","過積載禁止","工事車両徐行運転","急発進・急ブレーキ禁止","地山の点検","地盤・支点の確認","落下防止コードの使用","ガイドロープの使用","重機の足場の確認","保護具の着用","退避路の確保","立入禁止措置","飛散防止措置","誘導員配置・保安施設設置","専用吊金具の使用","足場の適正使用","ケーブル養生","落下防止措置","掘削勾配確保・土留め設置","架空線離隔の確保","埋設物の事前確認","開口部養生","散水・防じんマスク着用","玉掛けの適正実施","治具の使用","作業区画の分離","適正車両の選定","定格荷重の確認","挟まれ防止措置","型枠支保工の点検","鉄筋端部の養生","補助具の使用","作業姿勢の管理","高所作業車の適正使用","足場の点検","換気・防毒マスク着用"],
-  "作業者":["塗木　一鑑","日高　英司","横山　真実","塩畑　圭一郎","塩畑　紘文","永島　真","坂本　秀晃","坂本　一心","荒川　夏士希","塩畑　洋子"]
+  "危険要因":["路肩の崩壊","法面からの転落","足場からの転落","熱中症","歩行者と重機の接触","一般車両と重機の接触","重機に挟まれる","重機と作業者の接触","吊荷の落下","足場の倒壊","積荷の落下","一般車両との接触事故","機械に挟まれる","草刈り機での事故","河川内に転落","法面からの落石","クレーンの転倒","掘削中の法面崩壊","法面からの重機の転落","つまづき・転倒","交通事故","停止工事車両の暴走","上方からの工具の落下","高所作業者からの転落","吊荷との接触"],
+  "安全対策":["合図者配置","整理整頓","安全帯着用","輪止の使用","水分補給・休息","合図確認","上下作業禁止","吊荷の下に立ち入らない","吊具の状態の確認","足元の確認","一般車両優先で作業する","荷締めを確実に行う","作業手順の確認","浮石の撤去","周囲の確認","アウトリガー養生","路肩の明示","作業半径内立入禁止","過積載禁止","工事車両徐行運転","急発進・急ブレーキ禁止","地山の点検","地盤・支点の確認","落下防止コードの使用","ガイドロープの使用","重機の足場の確認"],
+  "作業者":["坂本","水野　博之","福島　利紀","福島　吏","塗木　一鑑","濱砂　幸治","日高　英司","西山　義光","横山　真実","塩畑　圭一郎","塩畑　紘文","交通誘導員B","交通誘導員A"]
 };
 
 // ============ 危険要因 → デフォルト値マッピング ============
@@ -49,12 +49,13 @@ let HAZARD_DEFAULTS = {
   "重機と作業者の接触":   {sev:"20", freq:"5", measure:"作業半径内立入禁止"},
   "吊荷の落下":           {sev:"20", freq:"1", measure:"吊具の状態の確認"},
   "足場の倒壊":           {sev:"20", freq:"1", measure:"地盤・支点の確認"},
-  "土砂等の積荷の落下":   {sev:"10", freq:"5", measure:"過積載禁止"},
+  "積荷の落下":           {sev:"10", freq:"5", measure:"荷締めを確実に行う"},
   "一般車両との接触事故": {sev:"20", freq:"1", measure:"一般車両優先で作業する"},
   "機械に挟まれる":       {sev:"20", freq:"1", measure:"合図確認"},
-  "草刈機の歯が他の作業員にあたる": {sev:"20", freq:"5", measure:"周囲の確認"},
+  "草刈り機での事故":     {sev:"10", freq:"5", measure:"周囲の確認"},
+  "河川内に転落":         {sev:"20", freq:"5", measure:"路肩の明示"},
   "法面からの落石":       {sev:"20", freq:"5", measure:"浮石の撤去"},
-  "クレーンの転倒":       {sev:"20", freq:"1", measure:"地盤の確認"},
+  "クレーンの転倒":       {sev:"20", freq:"1", measure:"アウトリガー養生"},
   "掘削中の法面崩壊":     {sev:"20", freq:"5", measure:"地山の点検"},
   "法面からの重機の転落": {sev:"20", freq:"5", measure:"重機の足場の確認"},
   "つまづき・転倒":       {sev:"10", freq:"5", measure:"足元の確認"},
@@ -62,30 +63,7 @@ let HAZARD_DEFAULTS = {
   "停止工事車両の暴走":   {sev:"20", freq:"1", measure:"輪止の使用"},
   "上方からの工具の落下": {sev:"10", freq:"5", measure:"落下防止コードの使用"},
   "高所作業者からの転落": {sev:"20", freq:"5", measure:"安全帯着用"},
-  "吊荷との接触":         {sev:"10", freq:"5", measure:"ガイドロープの使用"},
-  "草刈機の歯により石等が飛散する": {sev:"5", freq:"20", measure:"保護具の着用"},
-  "単管等の積荷の落下":   {sev:"20", freq:"10", measure:"荷締めを確実に行う"},
-  "チェーンソとの接触":   {sev:"20", freq:"10", measure:"保護具の着用"},
-  "倒木・跳ね返りによる被災": {sev:"20", freq:"5", measure:"退避路の確保"},
-  "第三者の被災":         {sev:"10", freq:"1", measure:"立入禁止措置"},
-  "仮設物の転倒":         {sev:"20", freq:"1", measure:"専用吊金具の使用"},
-  "高所からの墜落":       {sev:"20", freq:"5", measure:"足場の適正使用"},
-  "上方からの資材の落下": {sev:"20", freq:"5", measure:"立入禁止措置"},
-  "漏電・火災":           {sev:"20", freq:"1", measure:"ケーブル養生"},
-  "架空線への接触":       {sev:"20", freq:"5", measure:"架空線離隔の確保"},
-  "地下埋設物の損傷":     {sev:"10", freq:"5", measure:"埋設物の事前確認"},
-  "開口部への転落":       {sev:"20", freq:"5", measure:"開口部養生"},
-  "粉じん吸入":           {sev:"10", freq:"10", measure:"散水・防じんマスク着用"},
-  "積荷の荷崩れ":         {sev:"10", freq:"5", measure:"荷締めを確実に行う"},
-  "手指の挟まれ":         {sev:"20", freq:"5", measure:"治具の使用"},
-  "鉄筋端部による刺傷":   {sev:"20", freq:"5", measure:"鉄筋端部の養生"},
-  "腰痛":                 {sev:"5", freq:"10", measure:"補助具の使用"},
-  "工具の落下":           {sev:"20", freq:"5", measure:"上下作業禁止"},
-  "重機接触":             {sev:"20", freq:"5", measure:"合図者配置"},
-  "火傷":                 {sev:"10", freq:"5", measure:"保護具の着用"},
-  "飛来物による被災":     {sev:"10", freq:"5", measure:"保護具の着用"},
-  "騒音による被災":       {sev:"10", freq:"10", measure:"保護具の着用"},
-  "溶剤吸入":             {sev:"10", freq:"10", measure:"換気・防毒マスク着用"}
+  "吊荷との接触":         {sev:"10", freq:"5", measure:"ガイドロープの使用"}
 };
 
 // ============ 安全目標の自動生成 ============
@@ -105,7 +83,7 @@ let GOAL_MAP={
   "作業手順の確認":"手順確認よし！",
   "浮石の撤去":"浮石確認よし！",
   "周囲の確認":"周囲確認よし！",
-  "地盤の確認":"地盤よし！",
+  "アウトリガー養生":"アウトリガーよし！",
   "路肩の明示":"路肩確認よし！",
   "作業半径内立入禁止":"立入禁止確認よし！",
   "過積載禁止":"積載確認よし！",
@@ -115,34 +93,7 @@ let GOAL_MAP={
   "地盤・支点の確認":"地盤・支点よし！",
   "落下防止コードの使用":"落下防止コードよし！",
   "ガイドロープの使用":"ガイドロープよし！",
-  "重機の足場の確認":"足場確認よし！",
-  "保護具の着用":"保護具よし！",
-  "退避路の確保":"退避路よし！",
-  "立入禁止措置":"立入禁止よし！",
-  "飛散防止措置":"飛散防止よし！",
-  "誘導員配置・保安施設設置":"誘導員配置・保安施設設置よし！",
-  "専用吊金具の使用":"専用吊金具よし！",
-  "足場の適正使用":"足場適正使用よし！",
-  "ケーブル養生":"ケーブル養生よし！",
-  "落下防止措置":"落下防止措置よし！",
-  "掘削勾配確保・土留め設置":"掘削勾配確保・土留め設置よし！",
-  "架空線離隔の確保":"架空線離隔確保よし！",
-  "埋設物の事前確認":"埋設物事前確認よし！",
-  "開口部養生":"開口部養生よし！",
-  "散水・防じんマスク着用":"散水・防じんマスクよし！",
-  "玉掛けの適正実施":"玉掛け適正実施よし！",
-  "治具の使用":"治具よし！",
-  "作業区画の分離":"作業区画分離よし！",
-  "適正車両の選定":"適正車両選定よし！",
-  "定格荷重の確認":"定格荷重確認よし！",
-  "挟まれ防止措置":"挟まれ防止措置よし！",
-  "型枠支保工の点検":"型枠支保工確認よし！",
-  "鉄筋端部の養生":"鉄筋端部の養生よし！",
-  "補助具の使用":"補助具よし！",
-  "作業姿勢の管理":"作業姿勢管理よし！",
-  "高所作業車の適正使用":"高所作業車適正使用よし！",
-  "足場の点検":"足場確認よし！",
-  "換気・防毒マスク着用":"換気・防毒マスクよし！"
+  "重機の足場の確認":"足場確認よし！"
 };
 
 // 初期値のディープコピー保持（「初期値に戻す」用）
@@ -187,26 +138,15 @@ function getMonthKey(){
 }
 
 async function shiftDate(delta){
-  // 現画面のデータを保存（エラーが出てもナビゲーションは止めない）
-  try{
-    if(typeof autoSave==='function' && document.getElementById('workBlocks')) autoSave();
-    if(typeof autoSaveNippo==='function' && document.getElementById('nippoWorkBlocks')) autoSaveNippo();
-  }catch(e){ console.error('shiftDate autoSave error:',e); }
+  // 現画面のデータを保存
+  if(typeof autoSave==='function' && document.getElementById('workBlocks')) autoSave();
+  if(typeof autoSaveNippo==='function' && document.getElementById('nippoWorkBlocks')) autoSaveNippo();
   const inp=document.getElementById('workDate');
   if(!inp) return;
-  const oldMonth=currentMonth;
   const d=inp.value?new Date(inp.value+'T00:00:00'):new Date();
   d.setDate(d.getDate()+delta);
   inp.value=localDateStr(d);
-  try{
-    const newMonth=getMonthKey();
-    if(newMonth && oldMonth && newMonth!==oldMonth && currentFolderId){
-      await switchMonth(newMonth);
-    }
-  }catch(e){ console.error('shiftDate switchMonth error:',e); }
-  try{
-    if(typeof onDateChange==='function') onDateChange();
-  }catch(e){ console.error('shiftDate onDateChange error:',e); }
+  if(typeof onDateChange==='function') await onDateChange();
 }
 
 // ============ データ保存・読込（フォルダ + 月次ファイル方式） ============
@@ -223,17 +163,18 @@ let dataFileSaveTm=null;
 const DRIVE_CLIENT_ID='284823490637-5i3bmm35ncug6k486gidq3obgnb8ca3s.apps.googleusercontent.com';
 const DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
 let driveAccessToken=null;
+let driveFileId=null;
 let driveReady=false;
 let gapiInited=false;
 let gisInited=false;
 let tokenClient=null;
 
 // ============ Master / Project 状態 ============
-const MASTER_FILE_NAME='master.json';
+const MASTER_FILE_NAME='KY_master.json';
 let masterFileId=null;
-const DEFAULT_WORK_CATEGORIES=[{"category":"準備工","items":[{"name":"仮設物撤去","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"地盤の確認"},{"hazard":"吊荷との接触","severity":"10","frequency":"5","measure":"ガイドロープの使用"}]},{"name":"仮設物設置","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"地盤の確認"},{"hazard":"吊荷との接触","severity":"10","frequency":"5","measure":"ガイドロープの使用"}]},{"name":"測量作業","hazards":[{"hazard":"つまづき・転倒","severity":"5","frequency":"20","measure":"整理整頓"}]},{"name":"現地踏査・事前調査・測量","hazards":[{"hazard":"つまづき・転倒","severity":"5","frequency":"10","measure":"足元の確認"},{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"路肩の明示"},{"hazard":"熱中症","severity":"10","frequency":"10","measure":"水分補給・休息"}]},{"name":"除草作業","hazards":[{"hazard":"草刈機の歯が他の作業員にあたる","severity":"20","frequency":"10","measure":"周囲の確認"},{"hazard":"草刈機の歯により石等が飛散する","severity":"10","frequency":"10","measure":"保護具の着用"},{"hazard":"草刈機の歯により石等が飛散する","severity":"10","frequency":"10","measure":"飛散防止措置"}]}]},{"category":"仮設工","items":[{"name":"仮設防護柵設置・撤去","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"立入禁止措置"},{"hazard":"仮設物の転倒","severity":"20","frequency":"1","measure":"専用吊金具の使用"},{"hazard":"漏電・火災","severity":"20","frequency":"1","measure":"ケーブル養生"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"足場の適正使用"}]},{"name":"足場設置・撤去","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"落下防止措置"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"土工","items":[{"name":"切土","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"地山の点検"}]},{"name":"埋戻し","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"}]},{"name":"掘削","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"},{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"架空線への接触","severity":"20","frequency":"5","measure":"架空線離隔の確保"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"掘削・切土・運搬","hazards":[{"hazard":"粉じん吸入","severity":"10","frequency":"10","measure":"散水・防じんマスク着用"}]},{"name":"盛土","hazards":[{"hazard":"法面からの重機の転落","severity":"20","frequency":"5","measure":"地盤の確認"}]},{"name":"積込・運搬","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"合図者配置"}]}]},{"category":"排水構造物工","items":[{"name":"各種側溝の搬入","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"積荷の荷崩れ","severity":"10","frequency":"5","measure":"荷締めを確実に行う"}]},{"name":"各種側溝設置","hazards":[{"hazard":"吊荷との接触","severity":"20","frequency":"5","measure":"合図確認"},{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"吊具の状態の確認"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"}]},{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"地下埋設物の損傷","severity":"10","frequency":"5","measure":"埋設物の事前確認"},{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"架空線への接触","severity":"20","frequency":"5","measure":"架空線離隔の確保"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]}]},{"category":"擁壁工","items":[{"name":"プレキャスト擁壁の搬入","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"積荷の荷崩れ","severity":"10","frequency":"5","measure":"適正車両の選定"}]},{"name":"プレキャスト擁壁設置","hazards":[{"hazard":"クレーンの転倒","severity":"20","frequency":"1","measure":"定格荷重の確認"},{"hazard":"吊荷との接触","severity":"20","frequency":"5","measure":"合図者配置"},{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"玉掛けの適正実施"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"挟まれ防止措置"}]},{"name":"型枠組立・撤去","hazards":[{"hazard":"足場からの転落","severity":"20","frequency":"5","measure":"安全帯着用"},{"hazard":"足場の倒壊","severity":"20","frequency":"1","measure":"型枠支保工の点検"}]},{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"掘削勾配確保・土留め設置"},{"hazard":"開口部への転落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"鉄器加工組立","hazards":[{"hazard":"鉄筋端部による刺傷","severity":"20","frequency":"5","measure":"鉄筋端部の養生"}]}]},{"category":"縁石工","items":[{"name":"埋戻し","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"掘削","hazards":[{"hazard":"路肩の崩壊","severity":"20","frequency":"1","measure":"路肩の明示"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業区画の分離"}]},{"name":"縁石の搬入","hazards":[{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"},{"hazard":"腰痛","severity":"5","frequency":"10","measure":"補助具の使用"}]},{"name":"縁石設置","hazards":[{"hazard":"吊荷の落下","severity":"20","frequency":"5","measure":"吊具の状態の確認"},{"hazard":"手指の挟まれ","severity":"20","frequency":"5","measure":"治具の使用"},{"hazard":"第三者の被災","severity":"10","frequency":"5","measure":"立入禁止措置"},{"hazard":"腰痛","severity":"5","frequency":"10","measure":"作業姿勢の管理"}]}]},{"category":"法面工","items":[{"name":"モルタル吹付","hazards":[{"hazard":"工具の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"ラス張","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"植生基材吹付","hazards":[{"hazard":"工具の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"法枠組立","hazards":[{"hazard":"上方からの資材の落下","severity":"20","frequency":"5","measure":"上下作業禁止"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"法面整形","hazards":[{"hazard":"掘削中の法面崩壊","severity":"20","frequency":"1","measure":"地山の点検"},{"hazard":"法面からの落石","severity":"10","frequency":"5","measure":"浮石の撤去"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"舗装工","items":[{"name":"アスファルト舗設","hazards":[{"hazard":"火傷","severity":"10","frequency":"5","measure":"保護具の着用"},{"hazard":"熱中症","severity":"10","frequency":"10","measure":"水分補給・休息"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"}]},{"name":"合材受入","hazards":[{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"合図者配置"}]},{"name":"路床・路盤","hazards":[{"hazard":"粉じん吸入","severity":"10","frequency":"10","measure":"散水・防じんマスク着用"},{"hazard":"重機と作業者の接触","severity":"20","frequency":"5","measure":"作業半径内立入禁止"},{"hazard":"重機接触","severity":"20","frequency":"5","measure":"合図者配置"}]}]},{"category":"安全施設工","items":[{"name":"ガードレール設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"区画線設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"}]},{"name":"撤去・復旧","hazards":[{"hazard":"仮設物の転倒","severity":"20","frequency":"1","measure":"作業手順の確認"}]},{"name":"案内標識設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"高所作業車の適正使用"}]},{"name":"転落防止柵設置","hazards":[{"hazard":"一般車両との接触事故","severity":"20","frequency":"5","measure":"誘導員配置・保安施設設置"},{"hazard":"法面からの転落","severity":"20","frequency":"5","measure":"安全帯着用"}]}]},{"category":"橋梁補修工","items":[{"name":"ひび割れ補修","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"吊足場設置・撤去","hazards":[{"hazard":"上方からの工具の落下","severity":"20","frequency":"5","measure":"落下防止措置"},{"hazard":"足場の倒壊","severity":"20","frequency":"1","measure":"足場の点検"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"安全帯着用"}]},{"name":"支承補修","hazards":[{"hazard":"機械に挟まれる","severity":"20","frequency":"5","measure":"作業手順の確認"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"断面修復","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"},{"hazard":"飛来物による被災","severity":"10","frequency":"5","measure":"保護具の着用"},{"hazard":"騒音による被災","severity":"10","frequency":"10","measure":"保護具の着用"},{"hazard":"高所からの墜落","severity":"20","frequency":"5","measure":"開口部養生"}]},{"name":"現場塗装","hazards":[{"hazard":"溶剤吸入","severity":"10","frequency":"10","measure":"換気・防毒マスク着用"}]}]}];
-let masterData={workers:[],workCategories:JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES)),hazards:[],measures:[],hazardDefaults:{},goalMap:{},units:['式','m','m2','m3','基','個','箇所','枚','組','t','kg','km','g'],materials:[],materialSpecs:[]};
+let masterData={workers:[],workCategories:[],hazards:[],measures:[],hazardDefaults:{},goalMap:{},units:['式','m','m2','m3','基','個','箇所','枚','組','t','kg','km','g'],materials:[],materialSpecs:[]};
 let projectList=[];
+let currentProjectFileId=null;
 let currentFolderId=null;
 
 // GAPI (Google API client) 初期化
@@ -303,9 +244,10 @@ async function onDriveConnected(){
     await refreshProjectList();
     dbg('onDriveConnected: projectList='+projectList.length+' items: '+projectList.map(p=>p.name).join(', '));
     if(projectList.length>0){
-      if(currentFolderId&&projectList.some(p=>p.id===currentFolderId)){
-        sel.value=currentFolderId;
-        dbg('onDriveConnected: restored project '+currentFolderId);
+      const savedId=currentFolderId||currentProjectFileId;
+      if(savedId&&projectList.some(p=>p.id===savedId)){
+        sel.value=savedId;
+        dbg('onDriveConnected: restored project '+savedId);
       }else{
         sel.value=projectList[0].id;
         dbg('onDriveConnected: selected first project '+projectList[0].id);
@@ -318,9 +260,13 @@ async function onDriveConnected(){
     }
   }else{
     dbg('onDriveConnected: NO projectSelect - sub-page login detected');
+    // Sub-page login: load project using saved session state
     if(currentFolderId){
       dbg('onDriveConnected: sub-page - loading folder '+currentFolderId);
       await switchToFolder(currentFolderId);
+    }else if(currentProjectFileId){
+      dbg('onDriveConnected: sub-page - loading legacy '+currentProjectFileId);
+      await switchToLegacy(currentProjectFileId);
     }
   }
 
@@ -334,7 +280,7 @@ async function onDriveConnected(){
     dbg('onDriveConnected: re-calling onPageReady() to refresh UI');
     onPageReady();
   }
-  // showDebugPanel(); // デバッグパネル無効化
+  showDebugPanel();
 }
 
 // ============ Drive 低レベルヘルパー ============
@@ -387,6 +333,14 @@ async function createFileInFolder(folderId, fileName, content){
 }
 
 // レガシー互換ヘルパー
+async function readFromDrive(){
+  if(!driveFileId||!driveAccessToken)return null;
+  return await readFromDriveById(driveFileId);
+}
+async function writeToDrive(content){
+  if(!driveFileId||!driveAccessToken)return false;
+  return await writeToDriveById(driveFileId,content);
+}
 
 // Master file operations
 async function findOrCreateMasterFile(){
@@ -445,47 +399,13 @@ async function loadMasterData(){
     if(masterData.measures&&masterData.measures.length>0)M["安全対策"]=[...masterData.measures];
     if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
     if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
-    // 常にハードコードの M["作業者"] で workers を上書き（Drive上の古いリストを修正）
-    masterData.workers=M["作業者"].map(name=>{
-      // 既存のcompany情報があれば保持
-      const existing=(masterData.workers||[]).find(w=>w.name===name);
-      return {name, company:existing?existing.company:''};
-    });
+    if(!masterData.workers)masterData.workers=[];
     if(!masterData.workCategories)masterData.workCategories=[];
     // 旧形式 workItems がある場合は workCategories に移行
     if(masterData.workItems&&masterData.workItems.length>0&&(!masterData.workCategories||masterData.workCategories.length===0)){
       masterData.workCategories=[{category:'その他',items:masterData.workItems}];
       delete masterData.workItems;
     }
-    // workCategoriesが空またはhazardsが未設定の場合、DEFAULT_WORK_CATEGORIESで補完
-    if(!masterData.workCategories||masterData.workCategories.length===0){
-      masterData.workCategories=JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES));
-    }else{
-      // 既存カテゴリの各作業項目にhazardsが空なら、デフォルトからマージ
-      const defMap={};
-      DEFAULT_WORK_CATEGORIES.forEach(dc=>{
-        dc.items.forEach(di=>{ defMap[dc.category+'///'+di.name]=di.hazards; });
-      });
-      masterData.workCategories.forEach(cat=>{
-        if(!cat.items)cat.items=[];
-        cat.items.forEach(item=>{
-          if(typeof item==='string')return;
-          if(!item.hazards||item.hazards.length===0){
-            const key=cat.category+'///'+item.name;
-            if(defMap[key])item.hazards=JSON.parse(JSON.stringify(defMap[key]));
-          }
-        });
-      });
-      // デフォルトにあってDriveデータにないカテゴリを追加
-      const existCats=new Set(masterData.workCategories.map(c=>c.category));
-      DEFAULT_WORK_CATEGORIES.forEach(dc=>{
-        if(!existCats.has(dc.category)){
-          masterData.workCategories.push(JSON.parse(JSON.stringify(dc)));
-        }
-      });
-    }
-    // workers を上書きしたので Drive にも反映
-    await saveMasterData();
   }catch(e){
     showConfigStatus('❌ マスタデータ解析エラー: '+e.message);
   }
@@ -497,32 +417,59 @@ async function saveMasterData(){
 
 // Drive接続済みかどうか
 function isDriveConnected(){
-  return !!(driveAccessToken && currentFolderId);
+  return !!(driveAccessToken && (currentFolderId || driveFileId));
 }
 
-// ============ プロジェクト管理（フォルダ方式） ============
+// ============ プロジェクト管理（フォルダ方式 + レガシー互換） ============
 async function listProjectFiles(){
   try{
+    // New method: find folders containing config.json
     const configResp=await gapi.client.drive.files.list({
       q:"name='"+CONFIG_FILE_NAME+"' and mimeType='application/json' and trashed=false",
       fields:'files(id,name,parents)',spaces:'drive',pageSize:100
     });
     const configFiles=configResp.result.files||[];
     const folderIds=new Set();
+    const folderConfigMap={};
     configFiles.forEach(cf=>{
       if(cf.parents&&cf.parents.length>0){
-        folderIds.add(cf.parents[0]);
+        const pid=cf.parents[0];
+        folderIds.add(pid);
+        folderConfigMap[pid]=cf.id;
       }
     });
+    // Get folder names
     const result=[];
     for(const fid of folderIds){
       try{
         const fResp=await gapi.client.drive.files.get({fileId:fid,fields:'id,name,trashed'});
         if(!fResp.result.trashed){
-          result.push({name:fResp.result.name, id:fid, type:'folder'});
+          let projName=fResp.result.name;
+          if(projName.startsWith('KY_'))projName=projName.substring(3);
+          result.push({name:projName, id:fid, type:'folder'});
         }
       }catch(e){}
     }
+    // Also find legacy single-file projects (backward compat)
+    const legacyResp=await gapi.client.drive.files.list({
+      q:"(name contains 'KY_' or name='KY_data.json') and mimeType='application/json' and trashed=false",
+      fields:'files(id,name)',spaces:'drive',pageSize:100
+    });
+    const legacyFiles=legacyResp.result.files||[];
+    legacyFiles.forEach(f=>{
+      if(f.name===MASTER_FILE_NAME)return;
+      if(f.name===CONFIG_FILE_NAME)return;
+      let projName=f.name;
+      if(projName==='KY_data.json'){projName='（旧データ）';}
+      else{
+        if(projName.startsWith('KY_'))projName=projName.substring(3);
+        if(projName.endsWith('.json'))projName=projName.substring(0,projName.length-5);
+      }
+      if(/^\d{6}$/.test(projName))return;
+      if(/^\d{6}_(Hazard_Assessment|Daily_Report)$/.test(projName))return;
+      if(result.some(r=>r.name===projName))return;
+      result.push({name:projName+'（旧形式）', id:f.id, type:'legacy'});
+    });
     return result;
   }catch(e){return[];}
 }
@@ -535,8 +482,10 @@ async function refreshProjectList(){
     projectList.forEach(p=>{
       sel.innerHTML+=`<option value="${p.id}">${p.name}</option>`;
     });
-    if(currentFolderId){sel.value=currentFolderId;}
+    const curId=currentFolderId||currentProjectFileId;
+    if(curId){sel.value=curId;}
   }
+  // Save projectList to sessionStorage for other pages
   try{
     sessionStorage.setItem('projectList', JSON.stringify(projectList));
   }catch(e){}
@@ -548,16 +497,22 @@ async function onProjectSelect(){
   if(!id)return;
   const proj=projectList.find(p=>p.id===id);
   if(!proj)return;
-  await switchToFolder(proj.id);
+  if(proj.type==='folder'){
+    await switchToFolder(proj.id);
+  }else{
+    await switchToLegacy(proj.id);
+  }
 }
 
 async function switchToFolder(folderId){
   dbg(`switchToFolder(${folderId})`);
-  if(driveReady&&currentFolderId){
+  if(driveReady&&(currentFolderId||currentProjectFileId)){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
   }
   currentFolderId=folderId;
+  currentProjectFileId=null;
+  driveFileId=null;
   const configId=await findFileInFolder(folderId, CONFIG_FILE_NAME);
   dbg(`switchToFolder: config.json => ${configId}`);
   if(configId){
@@ -576,6 +531,36 @@ async function switchToFolder(folderId){
   if(typeof applyCurrentDateData==='function') applyCurrentDateData();
   driveReady=true;
   showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました');
+}
+
+async function switchToLegacy(fileId){
+  if(driveReady&&(currentFolderId||currentProjectFileId)){
+    if(typeof autoSave==='function') autoSave();
+    await saveCurrentMonth(true);
+  }
+  currentFolderId=null;
+  currentProjectFileId=fileId;
+  driveFileId=fileId;
+  currentMonth='';
+  currentMonthHAFileId=null;
+  currentMonthDRFileId=null;
+  const txt=await readFromDriveById(fileId);
+  if(txt){
+    try{
+      let cleaned=txt.replace(/[\u0000\s]+$/,'');
+      const lastBrace=cleaned.lastIndexOf('}');
+      if(lastBrace>=0)cleaned=cleaned.substring(0,lastBrace+1);
+      const parsed=JSON.parse(cleaned);
+      allData={config:parsed.config||{},entries:parsed.entries||{}};
+    }catch(e){allData={config:{},entries:{}};}
+  }
+  const pnEl=document.getElementById('projectName');
+  if(pnEl) pnEl.textContent=allData.config.projectName||'';
+  const creatorEl=document.getElementById('creator');
+  if(creatorEl&&allData.config.creator){creatorEl.value=allData.config.creator;}
+  if(typeof applyCurrentDateData==='function') applyCurrentDateData();
+  driveReady=true;
+  showConfigStatus('📂 工事「'+(allData.config.projectName||'')+'」を読込みました（旧形式）');
 }
 
 async function loadMonthData(month){
@@ -613,6 +598,18 @@ async function loadMonthData(month){
         dbg(`loadMonthData: DR parsed ${Object.keys(entries).length} entries`);
       }catch(e){dbg('loadMonthData: DR parse error: '+e.message);}}
     }
+  }else{
+    // Fallback: old single-file format (YYYYMM.json)
+    const oldFileName=month+'.json';
+    const oldFileId=await findFileInFolder(currentFolderId, oldFileName);
+    dbg(`loadMonthData: old format ${oldFileName} => ${oldFileId}`);
+    if(oldFileId){
+      currentMonthHAFileId=oldFileId; // reuse for backward compat saves
+      const txt=await readFromDriveById(oldFileId);
+      if(txt){try{const parsed=JSON.parse(txt);allData.entries=parsed.entries||parsed||{};
+        dbg(`loadMonthData: old format parsed ${Object.keys(allData.entries).length} entries`);
+      }catch(e){allData.entries={};dbg('loadMonthData: old format parse error: '+e.message);}}
+    }else{dbg('loadMonthData: no files found');}
   }
   dbg(`loadMonthData: total entries=${Object.keys(allData.entries).length}`);
 }
@@ -626,40 +623,50 @@ async function switchMonth(newMonth){
 
 async function saveCurrentMonth(silent){
   try{
-    if(!currentFolderId||!currentMonth)return false;
-    // Split entries into HA (KY activity) and DR (daily report)
-    const haEntries={};
-    const drEntries={};
-    Object.keys(allData.entries).forEach(dk=>{
-      const e=allData.entries[dk];
-      const haCopy={...e};
-      delete haCopy.nippo;
-      haEntries[dk]=haCopy;
-      if(e.nippo){
-        drEntries[dk]={nippo:e.nippo};
-      }
-    });
-    const haJson=JSON.stringify({entries:haEntries},null,2);
-    const drJson=JSON.stringify({entries:drEntries},null,2);
+    if(currentFolderId){
+      if(!currentMonth)return false;
+      // Split entries into HA (KY activity) and DR (daily report)
+      const haEntries={};
+      const drEntries={};
+      Object.keys(allData.entries).forEach(dk=>{
+        const e=allData.entries[dk];
+        const haCopy={...e};
+        delete haCopy.nippo;
+        haEntries[dk]=haCopy;
+        if(e.nippo){
+          drEntries[dk]={nippo:e.nippo};
+        }
+      });
+      const haJson=JSON.stringify({entries:haEntries},null,2);
+      const drJson=JSON.stringify({entries:drEntries},null,2);
 
-    // Save Hazard Assessment file
-    if(currentMonthHAFileId){
-      await writeToDriveById(currentMonthHAFileId, haJson);
-    }else{
-      const haFileName=currentMonth+'_Hazard_Assessment.json';
-      currentMonthHAFileId=await createFileInFolder(currentFolderId, haFileName, haJson);
-    }
-    // Save Daily Report file
-    if(Object.keys(drEntries).length>0){
-      if(currentMonthDRFileId){
-        await writeToDriveById(currentMonthDRFileId, drJson);
+      // Save Hazard Assessment file
+      if(currentMonthHAFileId){
+        await writeToDriveById(currentMonthHAFileId, haJson);
       }else{
-        const drFileName=currentMonth+'_Daily_Report.json';
-        currentMonthDRFileId=await createFileInFolder(currentFolderId, drFileName, drJson);
+        const haFileName=currentMonth+'_Hazard_Assessment.json';
+        currentMonthHAFileId=await createFileInFolder(currentFolderId, haFileName, haJson);
       }
+      // Save Daily Report file
+      if(Object.keys(drEntries).length>0){
+        if(currentMonthDRFileId){
+          await writeToDriveById(currentMonthDRFileId, drJson);
+        }else{
+          const drFileName=currentMonth+'_Daily_Report.json';
+          currentMonthDRFileId=await createFileInFolder(currentFolderId, drFileName, drJson);
+        }
+      }
+      if(!silent){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
+      return true;
     }
-    if(!silent){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+currentMonth+' / '+cnt+'日分)');}
-    return true;
+    if(currentProjectFileId){
+      const jsonStr=JSON.stringify(allData,null,2);
+      driveFileId=currentProjectFileId;
+      const ok=await writeToDrive(jsonStr);
+      if(!silent&&ok){const cnt=Object.keys(allData.entries).length;showConfigStatus('✅ Google ドライブに保存 ('+cnt+'日分)');}
+      return ok;
+    }
+    return false;
   }catch(e){if(!silent)showConfigStatus('❌ 保存失敗: '+e.message);return false;}
 }
 
@@ -676,17 +683,20 @@ async function createNewProject(){
   const name=prompt('新規工事名を入力してください');
   if(!name||!name.trim())return;
   const trimmed=name.trim();
-  if(driveReady&&currentFolderId){
+  if(driveReady&&(currentFolderId||currentProjectFileId)){
     if(typeof autoSave==='function') autoSave();
     await saveCurrentMonth(true);
   }
+  const folderName=trimmed;
   const createResp=await gapi.client.drive.files.create({
-    resource:{name:trimmed, mimeType:'application/vnd.google-apps.folder'},fields:'id'
+    resource:{name:folderName, mimeType:'application/vnd.google-apps.folder'},fields:'id'
   });
   const folderId=createResp.result.id;
   const config={projectName:trimmed,creator:''};
   await createFileInFolder(folderId, CONFIG_FILE_NAME, JSON.stringify(config,null,2));
   currentFolderId=folderId;
+  currentProjectFileId=null;
+  driveFileId=null;
   allData={config:config,entries:{}};
   currentMonth=getMonthKey()||localDateStr(new Date()).replace(/-/g,'').substring(0,6);
   currentMonthHAFileId=null;
@@ -701,12 +711,13 @@ async function createNewProject(){
 }
 
 async function deleteCurrentProject(){
-  if(!currentFolderId){alert('削除する工事が選択されていません');return;}
+  const id=currentFolderId||currentProjectFileId;
+  if(!id){alert('削除する工事が選択されていません');return;}
   const name=allData.config?.projectName||'';
   if(!confirm('工事「'+name+'」を削除しますか？\nこの操作は取り消せません。'))return;
   if(!confirm('本当に削除してよろしいですか？（最終確認）'))return;
-  await gapi.client.drive.files.update({fileId:currentFolderId,resource:{trashed:true}});
-  currentFolderId=null;
+  await gapi.client.drive.files.update({fileId:id,resource:{trashed:true}});
+  currentFolderId=null;currentProjectFileId=null;driveFileId=null;
   currentMonth='';currentMonthHAFileId=null;currentMonthDRFileId=null;
   allData={config:{},entries:{}};
   await refreshProjectList();
@@ -716,9 +727,27 @@ async function deleteCurrentProject(){
   showConfigStatus('🗑 工事「'+name+'」を削除しました');
 }
 
-// 自動保存（各ページで再定義される場合はそちらが優先される）
-// ※ このファイルはdeferで読み込まれるため、インラインscriptより後に実行される
-// ※ 各ページ固有のautoSaveが必要な場合はDOMContentLoaded内で再定義すること
+// 自動保存
+function autoSave(){
+  if(!driveReady)return;
+  const key=getDateKey();
+  if(!key)return;
+  try{
+    const data=typeof collectFormData==='function'?collectFormData():{};
+    // 既存の日報データを保持
+    const existingNippo=(allData.entries[key]&&allData.entries[key].nippo)||null;
+    const pnEl=document.getElementById('projectName');
+    const creatorEl=document.getElementById('creator');
+    allData.config={
+      ...(allData.config||{}),
+      projectName:pnEl?pnEl.textContent:'',
+      creator:creatorEl?creatorEl.value:''
+    };
+    allData.entries[key]=data;
+    if(existingNippo) allData.entries[key].nippo=existingNippo;
+    scheduleDataFileSave();
+  }catch(e){}
+}
 
 function scheduleDataFileSave(){
   if(!isDriveConnected())return;
@@ -726,12 +755,27 @@ function scheduleDataFileSave(){
   dataFileSaveTm=setTimeout(()=>{saveCurrentMonth(true);if(currentFolderId)saveProjectConfig();},2000);
 }
 
-// エイリアス
+// 互換用エイリアス
 async function saveAllToDataFile(silent){return await saveCurrentMonth(silent);}
 async function loadAllFromDataFile(){
-  if(!currentFolderId)return false;
-  await loadMonthData(currentMonth);
-  return Object.keys(allData.entries).length>0;
+  if(currentFolderId){
+    await loadMonthData(currentMonth);
+    return Object.keys(allData.entries).length>0;
+  }
+  if(!driveFileId)return false;
+  const txt=await readFromDrive();
+  if(!txt)return false;
+  try{
+    let cleaned=txt.replace(/[\u0000\s]+$/,'');
+    const lb=cleaned.lastIndexOf('}');
+    if(lb>=0)cleaned=cleaned.substring(0,lb+1);
+    const parsed=JSON.parse(cleaned);
+    if(parsed&&typeof parsed==='object'&&parsed.entries){
+      allData={config:parsed.config||{},entries:parsed.entries||{}};
+      return true;
+    }
+  }catch(e){}
+  return false;
 }
 
 // バックアップダウンロード
@@ -797,7 +841,9 @@ function loadDataFile(ev){
         const cnt=Object.keys(allData.entries).length;
         showConfigStatus('✅ ファイルから読み込みました ('+cnt+'日分)');
       }else{
-        showConfigStatus('❌ 対応していないファイル形式です');
+        // 旧形式（単日データ）の互換対応
+        if(typeof restoreFormData==='function') restoreFormData(all);
+        showConfigStatus('✅ ファイルから読み込みました');
       }
     }catch(err){showConfigStatus('❌ 読み込み失敗: '+err.message);}
   };
@@ -1429,6 +1475,7 @@ async function initCommon(){
   if(savedToken){
     driveAccessToken=savedToken;
     currentFolderId=sessionStorage.getItem('currentFolderId')||null;
+    currentProjectFileId=sessionStorage.getItem('currentProjectFileId')||null;
     currentMonth=sessionStorage.getItem('currentMonth')||'';
     masterFileId=sessionStorage.getItem('masterFileId')||null;
     currentMonthHAFileId=sessionStorage.getItem('currentMonthHAFileId')||null;
@@ -1443,45 +1490,17 @@ async function initCommon(){
       if(masterData.hazardDefaults)HAZARD_DEFAULTS={...masterData.hazardDefaults};
       if(masterData.goalMap)GOAL_MAP={...masterData.goalMap};
       if(!masterData.workers)masterData.workers=[];
-      if(!masterData.workCategories||masterData.workCategories.length===0){
-        masterData.workCategories=JSON.parse(JSON.stringify(DEFAULT_WORK_CATEGORIES));
-      }else{
-        // hazardsが空の作業項目にデフォルトを補完
-        const defMap={};
-        DEFAULT_WORK_CATEGORIES.forEach(dc=>{ dc.items.forEach(di=>{ defMap[dc.category+'///'+di.name]=di.hazards; }); });
-        masterData.workCategories.forEach(cat=>{
-          if(!cat.items)cat.items=[];
-          cat.items.forEach(item=>{
-            if(typeof item!=='string'&&(!item.hazards||item.hazards.length===0)){
-              const key=cat.category+'///'+item.name;
-              if(defMap[key])item.hazards=JSON.parse(JSON.stringify(defMap[key]));
-            }
-          });
-        });
-        const existCats=new Set(masterData.workCategories.map(c=>c.category));
-        DEFAULT_WORK_CATEGORIES.forEach(dc=>{ if(!existCats.has(dc.category)) masterData.workCategories.push(JSON.parse(JSON.stringify(dc))); });
-      }
+      if(!masterData.workCategories)masterData.workCategories=[];
     }}catch(e){}
     dbg(`initCommon: session restored - folderId=${currentFolderId}, month=${currentMonth}, entries=${Object.keys(allData.entries).length}, entryKeys=[${Object.keys(allData.entries).join(',')}]`);
   }
 
-  // 2) FAST PATH: show UI instantly from sessionStorage cache
-  if(savedToken && currentFolderId){
-    dbg('initCommon: FAST PATH (cache available)');
+  // 2) SUB-PAGE FAST PATH: show UI instantly from cache, then connect in background
+  if(!isHomePage && savedToken && (currentFolderId||currentProjectFileId)){
+    dbg('initCommon: SUB-PAGE FAST PATH');
     // Apply cached master data to UI selects
     refreshAllHazardSelects();
     refreshCreatorSelect();
-    // ホーム画面: sessionStorageの工事名とプロジェクトリストを即座に反映
-    if(isHomePage){
-      const pnEl=document.getElementById('projectName');
-      if(pnEl&&allData.config?.projectName) pnEl.textContent=allData.config.projectName;
-      const sel=document.getElementById('projectSelect');
-      if(sel&&projectList.length>0){
-        sel.innerHTML='<option value="">-- 工事を選択 --</option>';
-        projectList.forEach(p=>{ sel.innerHTML+=`<option value="${p.id}">${p.name}</option>`; });
-        if(currentFolderId) sel.value=currentFolderId;
-      }
-    }
     // Mark as ready so onPageReady can display data
     driveReady=true;
     // Show UI immediately
@@ -1489,12 +1508,10 @@ async function initCommon(){
       dbg('initCommon: calling onPageReady()');
       onPageReady();
     }
-    if(!isHomePage){
-      // サブページはバックグラウンドでDrive接続
-      connectDriveBackground();
-      return;
-    }
-    // ホーム画面はフル初期化も続行（プロジェクト一覧更新のため）
+    // Connect to Drive API in background (for auto-save)
+    connectDriveBackground();
+    showDebugPanel();
+    return;
   }
 
   // 3) HOME PAGE or FIRST VISIT: full initialization
@@ -1531,7 +1548,7 @@ async function initCommon(){
   // 5) Page-specific init
   dbg('initCommon: step5 - calling onPageReady, entries='+Object.keys(allData.entries).length);
   if(typeof onPageReady==='function') onPageReady();
-  // showDebugPanel(); // デバッグパネル無効化
+  showDebugPanel();
 }
 
 // Background Drive connection for sub-pages (non-blocking)
@@ -1567,6 +1584,12 @@ async function connectDriveBackground(){
         const drId=await findFileInFolder(currentFolderId, month+'_Daily_Report.json');
         if(haId){currentMonthHAFileId=haId;dbg('connectDriveBackground: HA fileId='+haId);}
         if(drId){currentMonthDRFileId=drId;dbg('connectDriveBackground: DR fileId='+drId);}
+        if(!haId&&!drId){
+          // Fallback: old single file
+          const oldId=await findFileInFolder(currentFolderId, month+'.json');
+          if(oldId){currentMonthHAFileId=oldId;dbg('connectDriveBackground: old format fileId='+oldId);}
+          else{dbg('connectDriveBackground: no month files found');}
+        }
       }
     }else{dbg('connectDriveBackground: skip - no token or gapi not inited');}
     dbg('connectDriveBackground: done');
@@ -1580,6 +1603,8 @@ function saveSession(){
   else sessionStorage.removeItem('driveAccessToken');
   if(currentFolderId) sessionStorage.setItem('currentFolderId', currentFolderId);
   else sessionStorage.removeItem('currentFolderId');
+  if(currentProjectFileId) sessionStorage.setItem('currentProjectFileId', currentProjectFileId);
+  else sessionStorage.removeItem('currentProjectFileId');
   if(currentMonth) sessionStorage.setItem('currentMonth', currentMonth);
   else sessionStorage.removeItem('currentMonth');
   if(masterFileId) sessionStorage.setItem('masterFileId', masterFileId);
@@ -1603,18 +1628,163 @@ function saveSession(){
 }
 
 // ============ Page Navigation ============
-async function navigateTo(page){
+function navigateTo(page){
   // Save any pending form data first
-  try{ if(typeof autoSave==='function') autoSave(); }catch(e){}
-  try{ if(typeof autoSaveNippo==='function') autoSaveNippo(); }catch(e){}
-  // Drive保存タイマーをキャンセルし、即座にDriveへ保存
-  clearTimeout(dataFileSaveTm);
-  if(isDriveConnected()){
-    try{ await saveCurrentMonth(true); }catch(e){ console.error('navigateTo save error:',e); }
-    try{ await saveProjectConfig(); }catch(e){}
-  }
+  if(typeof autoSave==='function') autoSave();
+  if(typeof autoSaveNippo==='function') autoSaveNippo();
   // Persist session state to sessionStorage before leaving
   saveSession();
   window.location.href=page;
 }
 
+// ============ Test Data Generator ============
+async function generateTestProject(){
+  if(!driveReady||!driveAccessToken){alert('先にGoogleドライブにログインしてください');return;}
+  const projectName='動作確認テスト工事';
+  dbg('generateTestProject: creating folder '+projectName);
+  showConfigStatus('⏳ テストプロジェクト作成中...');
+
+  // 1) Create project folder (folder name = project name only)
+  const folderMeta={name:projectName, mimeType:'application/vnd.google-apps.folder'};
+  const folderResp=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(folderMeta)
+  });
+  const folder=await folderResp.json();
+  const folderId=folder.id;
+  dbg('generateTestProject: folderId='+folderId);
+
+  // 2) Create config.json
+  const config={projectName:projectName,creator:'塩畑　圭一郎'};
+  await createFileInFolder(folderId,'config.json',JSON.stringify(config));
+
+  // 2.5) Ensure masterData.workCategories has test categories
+  const workItems=['路体盛土工','法面整形工','排水構造物工','仮設工','舗装工','土工','コンクリート工','鉄筋工','型枠工','基礎工'];
+  if(!masterData.workCategories||masterData.workCategories.length===0){
+    masterData.workCategories=[
+      {category:'土木工事',items:workItems.map(n=>({name:n,hazards:[]}))},
+      {category:'仮設工事',items:[{name:'仮設工',hazards:[]},{name:'足場工',hazards:[]}]}
+    ];
+    dbg('generateTestProject: created workCategories in masterData');
+    await saveMasterData();
+  }else if(!masterData.workCategories.some(c=>c.category==='土木工事')){
+    masterData.workCategories.push({category:'土木工事',items:workItems.map(n=>({name:n,hazards:[]}))});
+    dbg('generateTestProject: added 土木工事 category to masterData');
+    await saveMasterData();
+  }
+
+  // 3) Generate 45 days of data (today - 44 days ~ today)
+  const today=new Date();
+  const hazards=M["危険要因"];
+  const measures=M["安全対策"];
+  const workers=['坂本','水野　博之','福島　利紀','塗木　一鑑','濱砂　幸治','日高　英司'];
+  const materials=['生コンクリート','鉄筋 D13','鉄筋 D16','型枠用合板','砕石 RC-40','アスファルト合材','セメント','コルゲートパイプ'];
+  const weatherOpts=['晴れ','曇り','雨','晴れ時々曇り','曇り一時雨'];
+
+  // Group entries by month
+  const monthData={};
+  for(let i=44;i>=0;i--){
+    const d=new Date(today);
+    d.setDate(d.getDate()-i);
+    // Skip Sundays
+    if(d.getDay()===0) continue;
+    const dk=localDateStr(d).replace(/-/g,'');
+    const month=dk.substring(0,6);
+    if(!monthData[month]) monthData[month]={};
+
+    const numBlocks=1+Math.floor(Math.random()*3);
+    const workBlocks=[];
+    for(let b=0;b<numBlocks;b++){
+      const item=workItems[Math.floor(Math.random()*workItems.length)];
+      const haz1=hazards[Math.floor(Math.random()*hazards.length)];
+      const haz2=hazards[Math.floor(Math.random()*hazards.length)];
+      const meas1=HAZARD_DEFAULTS[haz1]?HAZARD_DEFAULTS[haz1].measure:measures[0];
+      const meas2=HAZARD_DEFAULTS[haz2]?HAZARD_DEFAULTS[haz2].measure:measures[1];
+      workBlocks.push({
+        category:'土木工事',
+        item:item,
+        hazards:[
+          {hazard:haz1,severity:HAZARD_DEFAULTS[haz1]?.sev||'10',frequency:HAZARD_DEFAULTS[haz1]?.freq||'5',measure:meas1},
+          {hazard:haz2,severity:HAZARD_DEFAULTS[haz2]?.sev||'10',frequency:HAZARD_DEFAULTS[haz2]?.freq||'5',measure:meas2}
+        ]
+      });
+    }
+
+    // KY Activity data
+    const entry={
+      workDate:localDateStr(d),
+      creator:'塩畑　圭一郎',
+      notice:'安全第一で作業する。体調管理に注意。',
+      safetyGoal:GOAL_MAP[workBlocks[0].hazards[0].measure]||'安全確認よし！',
+      workBlocks:workBlocks,
+      inspection:{'0-0':true,'0-1':true,'1-0':true,'1-1':true,'2-0':true},
+      signatures:{}
+    };
+
+    // Nippo (daily report) data
+    const numWorkers=2+Math.floor(Math.random()*4);
+    const dayWorkers=[];
+    const shuffled=[...workers].sort(()=>Math.random()-0.5);
+    for(let w=0;w<Math.min(numWorkers,shuffled.length);w++){
+      dayWorkers.push({name:shuffled[w],start:'08:00',end:'17:00',type:'作業員'});
+    }
+    const numNippoWork=1+Math.floor(Math.random()*2);
+    const nippoWork=[];
+    for(let n=0;n<numNippoWork;n++){
+      const wi=workItems[Math.floor(Math.random()*workItems.length)];
+      nippoWork.push({item:wi,spec:'一式',qty:String(10+Math.floor(Math.random()*90)),unit:'m'});
+    }
+    const numMat=Math.floor(Math.random()*3);
+    const nippoMaterials=[];
+    for(let m=0;m<numMat;m++){
+      const mi=materials[Math.floor(Math.random()*materials.length)];
+      nippoMaterials.push({name:mi,spec:'',qty:String(1+Math.floor(Math.random()*20)),unit:'t'});
+    }
+
+    entry.nippo={
+      weather:weatherOpts[Math.floor(Math.random()*weatherOpts.length)],
+      tempHigh:String(15+Math.floor(Math.random()*18)),
+      tempLow:String(5+Math.floor(Math.random()*15)),
+      work:nippoWork,
+      workers:dayWorkers,
+      materials:nippoMaterials,
+      complaints:'特になし',
+      envMeasures:'散水による粉塵対策実施',
+      safetyItems:'KY活動実施。安全帯着用確認。'
+    };
+
+    monthData[month][dk]=entry;
+  }
+
+  // 4) Save monthly files to Drive (split into HA + DR)
+  const months=Object.keys(monthData).sort();
+  dbg('generateTestProject: saving '+months.length+' months x 2 files');
+  for(const month of months){
+    // Split into Hazard Assessment and Daily Report
+    const haEntries={};
+    const drEntries={};
+    Object.keys(monthData[month]).forEach(dk=>{
+      const e=monthData[month][dk];
+      const haCopy={...e};
+      delete haCopy.nippo;
+      haEntries[dk]=haCopy;
+      if(e.nippo) drEntries[dk]={nippo:e.nippo};
+    });
+    await createFileInFolder(folderId,month+'_Hazard_Assessment.json',JSON.stringify({entries:haEntries},null,2));
+    await createFileInFolder(folderId,month+'_Daily_Report.json',JSON.stringify({entries:drEntries},null,2));
+    dbg('generateTestProject: saved '+month+' HA+DR ('+Object.keys(haEntries).length+' days)');
+  }
+
+  // 5) Refresh project list and select the new project
+  await refreshProjectList();
+  const sel=document.getElementById('projectSelect');
+  if(sel){
+    sel.value=folderId;
+    await onProjectSelect();
+  }
+  saveSession();
+  showConfigStatus('✅ テストプロジェクト作成完了！ ('+Object.values(monthData).reduce((s,m)=>s+Object.keys(m).length,0)+'日分)');
+  if(typeof onPageReady==='function') onPageReady();
+  dbg('generateTestProject: done');
+}

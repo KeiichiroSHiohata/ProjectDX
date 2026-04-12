@@ -238,11 +238,11 @@ h1{text-align:center;font-size:20px;margin-bottom:14px;color:#1a56db}
 </div><!-- container -->
 
 <script>
-// ============ Constants ============
-const ROW_STARTS={ky:5,hazard:6,equip:100,notice:106,goal:108,sig:111};
-const COL={cat:1,item:2,haz:3,sev:4,freq:5,meas:6,rank:7,contact:8,equip:9};
-const SIG_COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V'];
-const INSP_MAP={ts_exterior:'B21',ts_optical:'B22',ts_screw:'B23',ts_rotation:'B24',level_exterior:'C21',level_optical:'C22',level_screw:'C23',level_rotation:'C24',inspNote:'B25'};
+// ============ Constants (Excel template layout) ============
+const ROW_STARTS=[7,9,11,13,15,17,19,21,23,25];
+const COL={A:1,R:18,W:23,Z:26,AQ:43,AT:46,AW:49,AZ:52,BC:55};
+const SIG_COLS=[3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87];
+const INSP_MAP={exterior:9,optical:11,screw:13,rotation:15};
 let wkId=0;
 
 // ============ KY Form Functions ============
@@ -470,10 +470,6 @@ function openModal(id){
   currentSigId=id;
   const d=sigData[id];
   document.getElementById('sigModalTitle').textContent=`署名 - 署名者${id+1}`;
-  // モーダル表示前にキャンバスをクリア（前回の署名が一瞬見える問題を防止）
-  const canvas=document.getElementById('sigCanvas');
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,canvas.width,canvas.height);
   const modal=document.getElementById('sigModal');
   modal.classList.add('active');
   setTimeout(initModalCanvas,100);
@@ -505,31 +501,21 @@ function confirmSign(){
   autoSave();
 }
 
-let sigCanvasInited=false;
 function initModalCanvas(){
   const canvas=document.getElementById('sigCanvas');
   const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.lineCap='round';
   ctx.lineJoin='round';
   ctx.lineWidth=3;
   ctx.strokeStyle='#000';
-  if(!sigCanvasInited){
-    let isDrawing=false;
-    canvas.addEventListener('mousedown',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo(e.clientX-rect.left,e.clientY-rect.top);});
-    canvas.addEventListener('mousemove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();ctx.lineTo(e.clientX-rect.left,e.clientY-rect.top);ctx.stroke();});
-    canvas.addEventListener('mouseup',()=>{isDrawing=false;});
-    canvas.addEventListener('touchstart',(e)=>{e.preventDefault();isDrawing=true;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.beginPath();ctx.moveTo(t.clientX-rect.left,t.clientY-rect.top);});
-    canvas.addEventListener('touchmove',(e)=>{e.preventDefault();if(!isDrawing)return;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-rect.left,t.clientY-rect.top);ctx.stroke();});
-    canvas.addEventListener('touchend',()=>{isDrawing=false;});
-    sigCanvasInited=true;
-  }
-  // 既存の署名があれば表示
-  if(sigData[currentSigId]?.png){
-    const img=new Image();
-    img.onload=()=>{ctx.drawImage(img,0,0);};
-    img.src=sigData[currentSigId].png;
-  }
+  let isDrawing=false;
+  canvas.addEventListener('mousedown',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo(e.clientX-rect.left,e.clientY-rect.top);});
+  canvas.addEventListener('mousemove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();ctx.lineTo(e.clientX-rect.left,e.clientY-rect.top);ctx.stroke();});
+  canvas.addEventListener('mouseup',()=>{isDrawing=false;});
+  canvas.addEventListener('touchstart',(e)=>{isDrawing=true;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.beginPath();ctx.moveTo(t.clientX-rect.left,t.clientY-rect.top);});
+  canvas.addEventListener('touchmove',(e)=>{if(!isDrawing)return;const rect=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-rect.left,t.clientY-rect.top);ctx.stroke();});
+  canvas.addEventListener('touchend',()=>{isDrawing=false;});
+  if(sigData[currentSigId]?.png){ctx.drawImage(new Image(),0,0);}
 }
 
 function getSigPNG(){
@@ -701,61 +687,41 @@ async function exportExcel(){
       }
     }
 
-    // === styles.xml: BS3〜CJ3セルの下詰め・中央寄せ対応 ===
-    // 既存の共有スタイルを壊さないよう、新しいxfを追加して対象セルだけに適用する
+    // === styles.xml: BS3〜CJ3セルの下詰め対応 ===
     const styPath='xl/styles.xml';
     let styXml=await zip.file(styPath).async('string');
+    const row3El=getRow(3);
+    const row3Cells=row3El.getElementsByTagNameNS(ns,'c');
+    const usedStyles=new Set();
+    for(let ci=0;ci<row3Cells.length;ci++){
+      const ref=row3Cells[ci].getAttribute('r');
+      const colStr=ref.replace(/[0-9]/g,'');
+      let colIdx=0;for(let j=0;j<colStr.length;j++)colIdx=colIdx*26+(colStr.charCodeAt(j)-64);
+      if(colIdx>=71&&colIdx<=88){
+        const s=row3Cells[ci].getAttribute('s');
+        if(s)usedStyles.add(parseInt(s));
+      }
+    }
     const styParser=new DOMParser();
     const styDoc=styParser.parseFromString(styXml,'application/xml');
     const styNs=styDoc.documentElement.namespaceURI;
     const cellXfs=styDoc.getElementsByTagNameNS(styNs,'cellXfs')[0];
-    // 元スタイルID → 新スタイルID のマッピングを作成
-    const styleCloneMap={};
     if(cellXfs){
       const xfs=cellXfs.getElementsByTagNameNS(styNs,'xf');
-      const origCount=xfs.length;
-      // row3 の BS(71)〜CJ(88) セルのスタイルIDを収集
-      const row3El=getRow(3);
-      const row3Cells=row3El.getElementsByTagNameNS(ns,'c');
-      const targetCells=[];
-      for(let ci=0;ci<row3Cells.length;ci++){
-        const ref=row3Cells[ci].getAttribute('r');
-        const colStr=ref.replace(/[0-9]/g,'');
-        let colIdx=0;for(let j=0;j<colStr.length;j++)colIdx=colIdx*26+(colStr.charCodeAt(j)-64);
-        if(colIdx>=71&&colIdx<=88){
-          const s=row3Cells[ci].getAttribute('s');
-          if(s) targetCells.push({cell:row3Cells[ci],origStyle:parseInt(s)});
-        }
-      }
-      // 元スタイルごとにクローンを1つ作成
-      let nextIdx=origCount;
-      targetCells.forEach(tc=>{
-        if(styleCloneMap[tc.origStyle]===undefined){
-          const origXf=xfs[tc.origStyle];
-          if(origXf){
-            const newXf=origXf.cloneNode(true);
-            let align=newXf.getElementsByTagNameNS(styNs,'alignment')[0];
-            if(!align){
-              align=styDoc.createElementNS(styNs,'alignment');
-              newXf.appendChild(align);
-              newXf.setAttribute('applyAlignment','1');
-            }
-            align.setAttribute('vertical','bottom');
-            if(!align.getAttribute('horizontal')||align.getAttribute('horizontal')==='general'){
-              align.setAttribute('horizontal','center');
-            }
-            cellXfs.appendChild(newXf);
-            styleCloneMap[tc.origStyle]=nextIdx;
-            nextIdx++;
+      usedStyles.forEach(idx=>{
+        if(idx<xfs.length){
+          const xf=xfs[idx];
+          let align=xf.getElementsByTagNameNS(styNs,'alignment')[0];
+          if(!align){
+            align=styDoc.createElementNS(styNs,'alignment');
+            xf.appendChild(align);
+            xf.setAttribute('applyAlignment','1');
+          }
+          align.setAttribute('vertical','bottom');
+          if(!align.getAttribute('horizontal')||align.getAttribute('horizontal')==='general'){
+            align.setAttribute('horizontal','center');
           }
         }
-      });
-      // cellXfsのcount属性を更新
-      cellXfs.setAttribute('count',String(nextIdx));
-      // 対象セルのスタイルIDを新しいものに差し替え
-      targetCells.forEach(tc=>{
-        const newId=styleCloneMap[tc.origStyle];
-        if(newId!==undefined) tc.cell.setAttribute('s',String(newId));
       });
     }
     const stySer=new XMLSerializer();
@@ -774,10 +740,9 @@ async function exportExcel(){
       setNum(3,74,rY); setNum(3,78,mo); setNum(3,82,da); setStr(3,86,dow);
     }
 
-    // === 既存データクリア (10スロット分) ===
-    for(let s=0;s<10;s++){
-      const r=ROW_STARTS.ky+s*2;
-      for(let c=COL.cat;c<=COL.rank+1;c++) clearVal(r,c);
+    // === 既存データクリア ===
+    for(const r of ROW_STARTS){
+      for(const c of [COL.A,COL.R,COL.W,COL.Z,COL.AQ,COL.AT,COL.AW,COL.AZ,COL.BC]) clearVal(r,c);
     }
 
     // === 作業内容・危険要因 ===
@@ -789,55 +754,37 @@ async function exportExcel(){
       let first=true;
       hazards.forEach(hr=>{
         if(slot>=10)return;
-        const r=ROW_STARTS.ky+slot*2;
+        const r=ROW_STARTS[slot];
         if(first){
-          setStr(r,COL.cat,cat);
-          setStr(r,COL.item,item);
+          setStr(r,COL.A,item);  // 作業項目名をA列に
           first=false;
         }
-        setStr(r,COL.haz,hr.querySelector('.haz-sel')?.value||'');
+        setStr(r,COL.Z,hr.querySelector('.haz-sel')?.value||'');
         const sev=hr.querySelector('.haz-sev')?.value||'';
         const freq=hr.querySelector('.haz-freq')?.value||'';
         const sevN=parseInt(sev)||0, freqN=parseInt(freq)||0;
-        if(sev)setNum(r,COL.sev,sevN);
-        if(freq)setNum(r,COL.freq,freqN);
-        setStr(r,COL.meas,hr.querySelector('.haz-meas')?.value||'');
+        if(sev)setNum(r,COL.AQ,sevN);
+        if(freq)setNum(r,COL.AT,freqN);
+        setStr(r,COL.BC,hr.querySelector('.haz-meas')?.value||'');
         if(sevN&&freqN){
           const score=sevN+freqN;
-          setNum(r,COL.rank,score);
+          setNum(r,COL.AW,score);
           const rankLetter=score>=20?'D':score>=15?'C':score>=10?'B':'A';
-          setStr(r,COL.rank+1,rankLetter);
+          setStr(r,COL.AZ,rankLetter);
         }
         slot++;
       });
     });
 
     // === 測定機器点検 ===
-    const inspItems=['exterior','optical','screw','rotation'];
-    inspItems.forEach(k=>{
-      const tsCell=INSP_MAP['ts_'+k];
-      const lvCell=INSP_MAP['level_'+k];
-      const tsCb=document.querySelector(`[data-i="ts"][data-k="${k}"]`);
-      const lvCb=document.querySelector(`[data-i="level"][data-k="${k}"]`);
-      if(tsCell){
-        const rc=tsCell.match(/([A-Z]+)(\d+)/);
-        if(rc){
-          let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);
-          const row=parseInt(rc[2]);
-          if(tsCb&&tsCb.checked)setStr(row,col,'✓');else clearVal(row,col);
-        }
-      }
-      if(lvCell){
-        const rc=lvCell.match(/([A-Z]+)(\d+)/);
-        if(rc){
-          let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);
-          const row=parseInt(rc[2]);
-          if(lvCb&&lvCb.checked)setStr(row,col,'✓');else clearVal(row,col);
-        }
-      }
-    });
+    for(const[key,row] of Object.entries(INSP_MAP)){
+      const ts=document.querySelector(`[data-i="ts"][data-k="${key}"]`);
+      const lv=document.querySelector(`[data-i="level"][data-k="${key}"]`);
+      if(ts&&ts.checked)setStr(row,81,'✓');else clearVal(row,81);
+      if(lv&&lv.checked)setStr(row,86,'✓');else clearVal(row,86);
+    }
     const inspNoteVal=document.getElementById('inspNote').value;
-    if(inspNoteVal){const rc=INSP_MAP.inspNote.match(/([A-Z]+)(\d+)/);if(rc){let col=0;for(let j=0;j<rc[1].length;j++)col=col*26+(rc[1].charCodeAt(j)-64);setStr(parseInt(rc[2]),col,inspNoteVal);}}
+    if(inspNoteVal)setStr(19,71,inspNoteVal);
 
     // === 連絡事項・安全目標 ===
     setStr(29,1,document.getElementById('notice').value||'');
@@ -851,9 +798,8 @@ async function exportExcel(){
       const sd=sigData[i];
       const png=sd?sd.png:null;
       if(png){
-        let colIdx=0;for(let j=0;j<col.length;j++)colIdx=colIdx*26+(col.charCodeAt(j)-64);
-        if(sd.health)setStr(48,colIdx,sd.health);
-        sigImages.push({idx:i,col:colIdx,b64:png.split(',')[1]});
+        if(sd.health)setStr(48,col,sd.health);
+        sigImages.push({idx:i+1,col:col,b64:png.split(',')[1]});
       }
     }
 
@@ -991,9 +937,8 @@ function collectFormData(){
     data.inspection[cb.getAttribute('data-i')+'-'+cb.getAttribute('data-k')]=cb.checked;
   });
 
-  // Collect signatures（深いコピーで保存。参照共有による日付間データ混在を防止）
-  data.sigCount=parseInt(document.getElementById('sigCount').value)||4;
-  data.signatures=JSON.parse(JSON.stringify(sigData));
+  // Collect signatures
+  data.signatures=sigData;
 
   return data;
 }
@@ -1016,70 +961,62 @@ function clearForm(){
 
 function restoreFormData(data){
   if(!data)return;
-  _restoring=true; // autoSave抑制開始
-  try{
-    resetFormFields();
-    // workDateは復元しない（日付ナビゲーションで設定済みの値を維持する）
-    if(data.creator) document.getElementById('creator').value=data.creator;
-    if(data.notice) document.getElementById('notice').value=data.notice;
-    if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
-    if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
+  resetFormFields();
+  if(data.workDate) document.getElementById('workDate').value=data.workDate;
+  if(data.creator) document.getElementById('creator').value=data.creator;
+  if(data.notice) document.getElementById('notice').value=data.notice;
+  if(data.safetyGoal) document.getElementById('safetyGoal').value=data.safetyGoal;
+  if(data.inspNote) document.getElementById('inspNote').value=data.inspNote;
 
-    // Restore work blocks
-    if(data.workBlocks){
-      const wb=document.getElementById('workBlocks');
-      data.workBlocks.forEach(block=>{
-        addWorkBlock();
-        const lastBlock=wb.querySelector('.work-block:last-child');
-        if(lastBlock){
-          lastBlock.querySelector('.wk-cat').value=block.category||'';
-          onCategorySelect(lastBlock.querySelector('.wk-cat'));
-          lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
-          if(block.hazards){
-            const wkId=lastBlock.getAttribute('data-wk-id');
-            const hazDiv=lastBlock.querySelector(`#hazards-${wkId}`);
-            if(hazDiv) hazDiv.innerHTML='';
-            block.hazards.forEach(haz=>{
-              addHazardRow(hazDiv, {
-                hazard: haz.hazard||'',
-                severity: haz.severity||'',
-                frequency: haz.frequency||'',
-                measure: haz.measure||''
-              });
+  // Restore work blocks (supports both new format: category/item and old format: name/qty/unit)
+  if(data.workBlocks){
+    const wb=document.getElementById('workBlocks');
+    data.workBlocks.forEach(block=>{
+      addWorkBlock();
+      const lastBlock=wb.querySelector('.work-block:last-child');
+      if(lastBlock){
+        // New format uses category+item; old format uses name+qty+unit
+        lastBlock.querySelector('.wk-cat').value=block.category||'';
+        onCategorySelect(lastBlock.querySelector('.wk-cat'));
+        lastBlock.querySelector('.wk-item').value=block.item||block.name||'';
+        if(block.hazards){
+          const wkId=lastBlock.getAttribute('data-wk-id');
+          const hazDiv=lastBlock.querySelector(`#hazards-${wkId}`);
+          if(hazDiv) hazDiv.innerHTML='';
+          block.hazards.forEach(haz=>{
+            addHazardRow(hazDiv, {
+              hazard: haz.hazard||'',
+              severity: haz.severity||'',
+              frequency: haz.frequency||'',
+              measure: haz.measure||''
             });
-          }
+          });
         }
-      });
-    }
+      }
+    });
+  }
 
-    // Restore inspection
-    if(data.inspection){
-      Object.entries(data.inspection).forEach(([key,val])=>{
-        const sep=key.includes('-')?'-':'_';
-        const parts=key.split(sep);
-        if(parts.length>=2){
-          const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
-          if(cb)cb.checked=val;
-        }
-      });
-    }
+  // Restore inspection (supports both '-' separator and old '_' separator)
+  if(data.inspection){
+    Object.entries(data.inspection).forEach(([key,val])=>{
+      const sep=key.includes('-')?'-':'_';
+      const parts=key.split(sep);
+      if(parts.length>=2){
+        const cb=document.querySelector(`[data-i="${parts[0]}"][data-k="${parts[1]}"]`);
+        if(cb)cb.checked=val;
+      }
+    });
+  }
 
-    // Restore signatures（sigCountを先に復元してからrenderSigsを呼ぶ）
-    if(data.sigCount){
-      document.getElementById('sigCount').value=data.sigCount;
-    }
-    if(data.signatures){
-      sigData={...data.signatures};
-      renderSigs();
-    }
-  }catch(e){
-    console.error('restoreFormData error:',e);
-  }finally{
-    _restoring=false; // エラーが起きても必ずフラグを解除
+  // Restore signatures
+  if(data.signatures){
+    sigData={...data.signatures};
+    renderSigs();
   }
 }
 
 function onDateChange(){
+  autoSave();
   resetFormFields();
   const dk=getDateKey();
   if(dk&&allData.entries[dk]){
@@ -1103,55 +1040,33 @@ async function copyPrevDay(){
 
 async function doCopyPrevDay(prevKey){
   const prevData=allData.entries[prevKey];
-  const curDate=document.getElementById('workDate').value;
   const curKey=getDateKey();
-  // 署名・日付はコピーしない（当日の日付を維持、署名は日ごとに行うため）
-  const copyData={...prevData};
-  delete copyData.signatures;
-  delete copyData.workDate;
-  allData.entries[curKey]={...copyData};
-  restoreFormData(copyData);
-  // 日付を当日に戻す（restoreFormDataで変更されないが念のため）
-  document.getElementById('workDate').value=curDate;
+  allData.entries[curKey]={...prevData};
+  restoreFormData(prevData);
   autoSave();
 }
 
 // ============ Auto-save ============
-let _restoring=false; // restoreFormData中はautoSaveを抑制
 function autoSave(){
-  if(_restoring)return; // 復元中は保存しない（不完全なデータで上書きされるのを防止）
   if(!driveReady)return;
-  try{
-    const dk=getDateKey();
-    if(!dk)return;
-    if(!allData.entries[dk])allData.entries[dk]={};
-    const fd=collectFormData();
-    Object.assign(allData.entries[dk], fd);
-    const pnText=document.getElementById('kyProjectName')?.textContent||'';
-    allData.config={
-      ...(allData.config||{}),
-      projectName: pnText||allData.config?.projectName||'',
-      creator: document.getElementById('creator')?.value||''
-    };
-    scheduleDataFileSave();
-  }catch(e){ console.error('autoSave error:',e); }
+  const dk=getDateKey();
+  if(!dk)return;
+  if(!allData.entries[dk])allData.entries[dk]={};
+  const fd=collectFormData();
+  Object.assign(allData.entries[dk], fd);
+  allData.config={
+    ...(allData.config||{}),
+    projectName: document.getElementById('kyProjectName')?.textContent||'',
+    creator: document.getElementById('creator')?.value||''
+  };
+  scheduleDataFileSave();
 }
 
 // ============ Page Initialization ============
 function onPageReady(){
   dbg('HA.onPageReady() start');
   const pn=document.getElementById('kyProjectName');
-  // プロジェクト名をセット（複数ソースからフォールバック取得）
-  let projName=allData.config?.projectName||'';
-  if(!projName){
-    // sessionStorageから直接取得を試みる
-    try{const c=sessionStorage.getItem('allDataConfig');if(c){const cfg=JSON.parse(c);projName=cfg.projectName||'';}}catch(e){}
-  }
-  if(!projName&&currentFolderId){
-    // projectListからフォルダIDで逆引き
-    try{const p=(projectList||[]).find(p=>p.id===currentFolderId);if(p)projName=p.name||'';}catch(e){}
-  }
-  if(pn&&projName){pn.textContent=projName;allData.config=allData.config||{};allData.config.projectName=projName;}
+  if(pn&&allData.config?.projectName)pn.textContent=allData.config.projectName;
   const wd=document.getElementById('workDate');
   if(wd&&!wd.value)wd.value=localDateStr(new Date());
   dbg(`HA.onPageReady: workDate=${wd?.value}, projectName=${allData.config?.projectName}`);
@@ -1163,8 +1078,8 @@ function onPageReady(){
     restoreFormData(allData.entries[dk]);
   }else{
     dbg(`HA.onPageReady: NO data for dateKey ${dk}`);
-    renderSigs(); // データがない場合のみ初期署名欄を表示
   }
+  renderSigs();
   document.querySelectorAll('#workBlocks input, #workBlocks select, #workBlocks textarea').forEach(el=>{
     el.addEventListener('change',autoSave);
   });
