@@ -1107,9 +1107,10 @@ function autoSave(){
     if(!allData.entries[dk])allData.entries[dk]={};
     const fd=collectFormData();
     Object.assign(allData.entries[dk], fd);
+    const pnText=document.getElementById('kyProjectName')?.textContent||'';
     allData.config={
       ...(allData.config||{}),
-      projectName: document.getElementById('kyProjectName')?.textContent||'',
+      projectName: pnText||allData.config?.projectName||'',
       creator: document.getElementById('creator')?.value||''
     };
     scheduleDataFileSave();
@@ -1120,7 +1121,17 @@ function autoSave(){
 function onPageReady(){
   dbg('HA.onPageReady() start');
   const pn=document.getElementById('kyProjectName');
-  if(pn&&allData.config?.projectName)pn.textContent=allData.config.projectName;
+  // プロジェクト名をセット（複数ソースからフォールバック取得）
+  let projName=allData.config?.projectName||'';
+  if(!projName){
+    // sessionStorageから直接取得を試みる
+    try{const c=sessionStorage.getItem('allDataConfig');if(c){const cfg=JSON.parse(c);projName=cfg.projectName||'';}}catch(e){}
+  }
+  if(!projName&&currentFolderId){
+    // projectListからフォルダIDで逆引き
+    try{const p=(projectList||[]).find(p=>p.id===currentFolderId);if(p)projName=p.name||'';}catch(e){}
+  }
+  if(pn&&projName){pn.textContent=projName;allData.config=allData.config||{};allData.config.projectName=projName;}
   const wd=document.getElementById('workDate');
   if(wd&&!wd.value)wd.value=localDateStr(new Date());
   dbg(`HA.onPageReady: workDate=${wd?.value}, projectName=${allData.config?.projectName}`);
