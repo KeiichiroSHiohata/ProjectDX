@@ -367,14 +367,14 @@ function calcS(el){
   if(!row)return;
   const sev=parseInt(row.querySelector('.haz-sev').value)||0;
   const freq=parseInt(row.querySelector('.haz-freq').value)||0;
-  const s=sev*freq;
+  const s=sev+freq;
   const rankEl=row.querySelector('[id^="rank-"]');
   if(!rankEl)return;
-  let rankClass='rank-D',rankText='低';
-  if(s>=100){rankClass='rank-A';rankText='極';}
-  else if(s>=50){rankClass='rank-B';rankText='高';}
-  else if(s>=10){rankClass='rank-C';rankText='中';}
-  rankEl.textContent=`リスク: ${rankText} (${s})`;
+  let rankClass='rank-A',rankText='A';
+  if(s>=20){rankClass='rank-D';rankText='D';}
+  else if(s>=15){rankClass='rank-C';rankText='C';}
+  else if(s>=10){rankClass='rank-B';rankText='B';}
+  rankEl.textContent=`評価: ${rankText} (${s})`;
   rankEl.className='score '+rankClass;
 }
 
@@ -742,9 +742,9 @@ async function exportExcel(){
         if(freq)setNum(r,COL.freq,freqN);
         setStr(r,COL.meas,hr.querySelector('.haz-meas')?.value||'');
         if(sevN&&freqN){
-          const score=sevN*freqN;
+          const score=sevN+freqN;
           setNum(r,COL.rank,score);
-          const rankLetter=score>=100?'A':score>=50?'B':score>=10?'C':'D';
+          const rankLetter=score>=20?'D':score>=15?'C':score>=10?'B':'A';
           setStr(r,COL.rank+1,rankLetter);
         }
         slot++;
